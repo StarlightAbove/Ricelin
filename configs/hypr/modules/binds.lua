@@ -1,7 +1,7 @@
 local mod = "SUPER"
 
 hl.bind(mod .. " + W",         hl.dsp.window.kill())
-hl.bind(mod .. " SHIFT + W",   hl.dsp.window.close())
+hl.bind("CTRL + SHIFT + W",    hl.dsp.window.close())
 hl.bind(mod .. " + Return",    hl.dsp.exec_cmd("ghostty"))
 hl.bind(mod .. " + F",         hl.dsp.window.fullscreen())
 hl.bind(mod .. " + E",         hl.dsp.exec_cmd("dolphin"))

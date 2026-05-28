@@ -7,11 +7,17 @@ Thumbs.db
 *.bak
 *.tmp
 
+# Legacy migration artifacts
+*.legacy
+
 # Per-machine
 .envrc
 
 # Personal notes / transcripts / planning — local only
 memory/
+
+# Machine-specific install/partition plan — local only
+configs/partition-day-sequence.md
 
 # Hyprland auto-generates this stub if no .conf found — never track
 configs/hypr/hyprland.conf

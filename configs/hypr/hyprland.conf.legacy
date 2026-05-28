@@ -1,9 +1,0 @@
-monitor=,preferred,auto,1
-exec-once = ghostty
-bind = SUPER, Q, exec, ghostty
-bind = SUPER, B, exec, brave
-bind = SUPER, M, exit
-bind = SUPER SHIFT, Q, killactive
-input {
-	kb_layout = de
-}
