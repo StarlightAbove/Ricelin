@@ -23,6 +23,10 @@ else
 fi
 grep '^GRUB_THEME=' "$GRUBDEF"
 
+echo "==> set timeout 10s + native gfx resolution"
+sed -i "s|^GRUB_TIMEOUT=.*|GRUB_TIMEOUT='10'|" "$GRUBDEF"
+sed -i "s|^GRUB_GFXMODE=.*|GRUB_GFXMODE='2560x1440,auto'|" "$GRUBDEF"
+
 echo "==> enable os-prober + deps (Windows + old CachyOS on sda4)"
 sed -i "s|^#*GRUB_DISABLE_OS_PROBER=.*|GRUB_DISABLE_OS_PROBER=false|" "$GRUBDEF" \
   || echo "GRUB_DISABLE_OS_PROBER=false" >> "$GRUBDEF"
