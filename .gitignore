@@ -12,3 +12,6 @@ Thumbs.db
 
 # Personal notes / transcripts / planning — local only
 memory/
+
+# Hyprland auto-generates this stub if no .conf found — never track
+configs/hypr/hyprland.conf
