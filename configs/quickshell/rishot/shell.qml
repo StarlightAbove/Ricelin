@@ -59,6 +59,7 @@ ShellRoot {
         if (!globalSel || activeTool === "select") return;
         var p = clampToSel(gx, gy);
         pressPoint = p;
+        capturing = true;
         if (isFreehand(activeTool))
             draft = { type: activeTool, points: [p], color: activeColor, width: activeWidth };
         else
@@ -78,6 +79,7 @@ ShellRoot {
         bumpAnn();
     }
     function endDraw() {
+        capturing = false;
         if (!draft) return;
         if (isFreehand(draft.type)) {
             if (draft.points.length >= 2) model.add(draft);

@@ -50,14 +50,13 @@ Item {
     function arrowHead(a) {
         var p0 = lp(a, 0), p1 = lp(a, 1);
         var ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-        var len = Math.max(a.width * 3.2, 12);
-        var spread = 0.42;
-        return [
-            p1,
-            Qt.point(p1.x - len * Math.cos(ang - spread), p1.y - len * Math.sin(ang - spread)),
-            Qt.point(p1.x - len * Math.cos(ang + spread), p1.y - len * Math.sin(ang + spread)),
-            p1
-        ];
+        var len = Math.max(a.width * 5, 22);
+        var spread = 0.45;
+        return {
+            tip: p1,
+            a: Qt.point(p1.x - len * Math.cos(ang - spread), p1.y - len * Math.sin(ang - spread)),
+            b: Qt.point(p1.x - len * Math.cos(ang + spread), p1.y - len * Math.sin(ang + spread))
+        };
     }
 
     Repeater {
@@ -85,16 +84,12 @@ Item {
             }
 
             Shape {
-                id: shp
+                id: polyShape
                 anchors.fill: parent
                 antialiasing: true
                 preferredRendererType: Shape.CurveRenderer
-                visible: cell.valid && cell.kind !== "rect"
-
-                readonly property bool isLine: cell.kind === "line" || cell.kind === "arrow"
-                readonly property bool isPoly: cell.kind === "pen" || cell.kind === "marker"
-                readonly property bool isEllipse: cell.kind === "ellipse"
-                readonly property var eg: (isEllipse && cell.valid) ? canvas.ellipseGeom(cell.a) : null
+                visible: cell.valid && (cell.kind === "line" || cell.kind === "arrow"
+                    || cell.kind === "pen" || cell.kind === "marker")
 
                 ShapePath {
                     strokeColor: cell.valid ? canvas.strokeColorOf(cell.a) : "transparent"
@@ -102,53 +97,68 @@ Item {
                     fillColor: "transparent"
                     capStyle: ShapePath.RoundCap
                     joinStyle: ShapePath.RoundJoin
-
-                    startX: {
-                        if (!cell.valid) return 0;
-                        if (shp.eg) return shp.eg.cx - shp.eg.rx;
-                        return canvas.lp(cell.a, 0).x;
-                    }
-                    startY: {
-                        if (!cell.valid) return 0;
-                        if (shp.eg) return shp.eg.cy;
-                        return canvas.lp(cell.a, 0).y;
-                    }
-
+                    startX: cell.valid ? canvas.lp(cell.a, 0).x : 0
+                    startY: cell.valid ? canvas.lp(cell.a, 0).y : 0
                     PathPolyline {
                         path: {
                             if (!cell.valid) return [];
-                            if (shp.isPoly) return canvas.polyPath(cell.a);
-                            if (shp.isLine) return [canvas.lp(cell.a, 0), canvas.lp(cell.a, 1)];
-                            return [];
+                            if (cell.kind === "pen" || cell.kind === "marker") return canvas.polyPath(cell.a);
+                            return [canvas.lp(cell.a, 0), canvas.lp(cell.a, 1)];
                         }
                     }
-
-                    PathArc {
-                        x: shp.eg ? shp.eg.cx + shp.eg.rx : 0
-                        y: shp.eg ? shp.eg.cy : 0
-                        radiusX: shp.eg ? shp.eg.rx : 0
-                        radiusY: shp.eg ? shp.eg.ry : 0
-                    }
-                    PathArc {
-                        x: shp.eg ? shp.eg.cx - shp.eg.rx : 0
-                        y: shp.eg ? shp.eg.cy : 0
-                        radiusX: shp.eg ? shp.eg.rx : 0
-                        radiusY: shp.eg ? shp.eg.ry : 0
-                    }
                 }
+            }
+
+            Shape {
+                id: ellShape
+                anchors.fill: parent
+                antialiasing: true
+                preferredRendererType: Shape.CurveRenderer
+                visible: cell.valid && cell.kind === "ellipse"
+                readonly property var eg: (cell.valid && cell.kind === "ellipse") ? canvas.ellipseGeom(cell.a) : null
 
                 ShapePath {
-                    id: head
-                    readonly property var pts: (cell.valid && cell.kind === "arrow") ? canvas.arrowHead(cell.a) : null
+                    strokeColor: cell.valid ? canvas.strokeColorOf(cell.a) : "transparent"
+                    strokeWidth: cell.valid ? canvas.strokeWidthOf(cell.a) : 0
+                    fillColor: "transparent"
+                    capStyle: ShapePath.RoundCap
+                    joinStyle: ShapePath.RoundJoin
+                    startX: ellShape.eg ? ellShape.eg.cx - ellShape.eg.rx : 0
+                    startY: ellShape.eg ? ellShape.eg.cy : 0
+                    PathArc {
+                        x: ellShape.eg ? ellShape.eg.cx + ellShape.eg.rx : 0
+                        y: ellShape.eg ? ellShape.eg.cy : 0
+                        radiusX: ellShape.eg ? ellShape.eg.rx : 0
+                        radiusY: ellShape.eg ? ellShape.eg.ry : 0
+                    }
+                    PathArc {
+                        x: ellShape.eg ? ellShape.eg.cx - ellShape.eg.rx : 0
+                        y: ellShape.eg ? ellShape.eg.cy : 0
+                        radiusX: ellShape.eg ? ellShape.eg.rx : 0
+                        radiusY: ellShape.eg ? ellShape.eg.ry : 0
+                    }
+                }
+            }
+
+            Shape {
+                id: headShape
+                anchors.fill: parent
+                antialiasing: true
+                preferredRendererType: Shape.CurveRenderer
+                visible: cell.valid && cell.kind === "arrow"
+                readonly property var pts: (cell.valid && cell.kind === "arrow") ? canvas.arrowHead(cell.a) : null
+
+                ShapePath {
                     strokeColor: cell.valid ? cell.a.color : "transparent"
-                    strokeWidth: 1
+                    strokeWidth: cell.valid ? cell.a.width : 0
                     fillColor: cell.valid ? cell.a.color : "transparent"
                     capStyle: ShapePath.RoundCap
                     joinStyle: ShapePath.RoundJoin
-
-                    startX: pts ? pts[0].x : 0
-                    startY: pts ? pts[0].y : 0
-                    PathPolyline { path: head.pts ? head.pts : [] }
+                    startX: headShape.pts ? headShape.pts.tip.x : 0
+                    startY: headShape.pts ? headShape.pts.tip.y : 0
+                    PathLine { x: headShape.pts ? headShape.pts.a.x : 0; y: headShape.pts ? headShape.pts.a.y : 0 }
+                    PathLine { x: headShape.pts ? headShape.pts.b.x : 0; y: headShape.pts ? headShape.pts.b.y : 0 }
+                    PathLine { x: headShape.pts ? headShape.pts.tip.x : 0; y: headShape.pts ? headShape.pts.tip.y : 0 }
                 }
             }
         }
