@@ -1,6 +1,9 @@
-// rishot — per-screen overlay: frozen capture bg + dim w/ selection punch-out + selection chrome.
-// Capture freezes one frame (captureFrame until hasContent, then stop); dim/chrome only paint
-// after the frame is frozen so wlr-screencopy never grabs our own surface.
+// rishot — per-screen overlay: frozen capture bg + annotation canvas (the "scene"), with dim,
+// selection chrome and toolbar layered ABOVE as separate siblings so they never enter the export.
+// Export-clip: a ShaderEffectSource mirrors the scene's rendered texture (no re-capture, so the
+// frozen frame is reused without polluting it), cropped+offset to the local selection rect, then
+// grabToImage'd. Capture freezes one frame (captureFrame until hasContent, then stop); dim/chrome
+// only paint after the frame is frozen so wlr-screencopy never grabs our own surface.
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
@@ -15,6 +18,10 @@ Item {
     property bool capturing: false            // true while drag in progress
     property bool ready: false                // frozen frame captured
 
+    property var model: null                  // shared AnnotationModel instance
+    property var draft: null                  // in-progress annotation | null
+    property int annRevision: 0               // bump to refresh annotation render
+
     signal pressedAt(real gx, real gy)
     signal movedTo(real gx, real gy)
     signal released()
@@ -28,12 +35,31 @@ Item {
         ? Coords.intersectRect(globalSel, { x: sx, y: sy, width: width, height: height })
         : null
 
-    ScreencopyView {
-        id: frozen
+    readonly property color dimColor: Qt.rgba(8 / 255, 10 / 255, 16 / 255, 0.62)
+    readonly property color vermilion: "#e0563b"
+
+    // ---- scene: frozen frame + annotation canvas (the only thing exported) ----
+    Item {
+        id: scene
         anchors.fill: parent
-        captureSource: overlay.screenData
-        live: false
-        paintCursor: false
+
+        ScreencopyView {
+            id: frozen
+            anchors.fill: parent
+            captureSource: overlay.screenData
+            live: false
+            paintCursor: false
+        }
+
+        AnnLayer {
+            id: annCanvas
+            anchors.fill: parent
+            sx: overlay.sx
+            sy: overlay.sy
+            model: overlay.model
+            draft: overlay.draft
+            revision: overlay.annRevision
+        }
     }
 
     // Drive a single frozen capture: call captureFrame() until content arrives, then STOP.
@@ -57,10 +83,7 @@ Item {
         }
     }
 
-    readonly property color dimColor: Qt.rgba(8 / 255, 10 / 255, 16 / 255, 0.62)
-    readonly property color vermilion: "#e0563b"
-
-    // Dim everything; punch out the selection via 4 bands around localSel.
+    // ---- chrome (NOT exported): dim, selection border, handles, label ----
     Rectangle {            // full dim when no selection on this output
         anchors.fill: parent
         color: overlay.dimColor
@@ -139,6 +162,39 @@ Item {
             x: 0
             y: -height - 4
         }
+    }
+
+    // ---- export-clip: mirrors the scene texture, cropped to the local selection ----
+    // Hidden from view (placed off-window); used only as a grabToImage target.
+    Item {
+        id: exportClip
+        clip: true
+        visible: false
+        width: overlay.localSel ? overlay.localSel.w : 0
+        height: overlay.localSel ? overlay.localSel.h : 0
+
+        ShaderEffectSource {
+            sourceItem: scene
+            // Show the whole scene texture, shifted so the selection origin lands at 0,0.
+            width: scene.width
+            height: scene.height
+            x: overlay.localSel ? -overlay.localSel.x : 0
+            y: overlay.localSel ? -overlay.localSel.y : 0
+            live: true
+            recursive: false
+        }
+    }
+
+    // Grab ONLY the selection region (frozen pixels + annotations, no dim/chrome). cb(ok).
+    function grabExport(path, cb) {
+        if (!overlay.localSel) { cb(false); return; }
+        var scheduled = exportClip.grabToImage(function (result) {
+            var ok = false;
+            try { ok = result ? result.saveToFile(path) : false; }
+            catch (e) { console.log("rishot: saveToFile failed: " + e); }
+            if (cb) cb(ok);
+        });
+        if (!scheduled && cb) cb(false);
     }
 
     MouseArea {
