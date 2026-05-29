@@ -6,12 +6,22 @@ set -euo pipefail
 
 WPDIR="$HOME/Ricelin/wallpapers"
 
+ensure_daemon() {
+    awww query >/dev/null 2>&1 && return 0
+    local attempt i
+    for attempt in 1 2 3 4 5; do
+        awww-daemon >/dev/null 2>&1 &
+        for i in $(seq 1 15); do
+            awww query >/dev/null 2>&1 && return 0
+            sleep 0.2
+        done
+    done
+    return 1
+}
+
 daemon_was_running=true
-if ! awww query >/dev/null 2>&1; then
-    awww-daemon >/dev/null 2>&1 &
-    sleep 0.6
-    daemon_was_running=false
-fi
+awww query >/dev/null 2>&1 || daemon_was_running=false
+ensure_daemon || exit 0
 
 if [ "${1:-}" = "init" ] && [ "$daemon_was_running" = true ]; then
     exit 0
