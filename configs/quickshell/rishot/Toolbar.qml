@@ -31,14 +31,15 @@ Item {
     readonly property color sep: "#313a4d"
 
     readonly property var tools: [
-        { id: "rect",    glyph: "▭", implemented: true },
-        { id: "ellipse", glyph: "◯", implemented: true },
-        { id: "line",    glyph: "╱", implemented: true },
-        { id: "arrow",   glyph: "↗", implemented: true },
-        { id: "pen",     glyph: "✎", implemented: true },
-        { id: "marker",  glyph: "▰", implemented: true },
-        { id: "text",    glyph: "T", implemented: false },
-        { id: "blur",    glyph: "▒", implemented: false }
+        { id: "select",  icon: "select",  implemented: true },
+        { id: "rect",    icon: "rect",    implemented: true },
+        { id: "ellipse", icon: "ellipse", implemented: true },
+        { id: "line",    icon: "line",    implemented: true },
+        { id: "arrow",   icon: "arrow",   implemented: true },
+        { id: "pen",     icon: "pen",     implemented: true },
+        { id: "marker",  icon: "marker",  implemented: true },
+        { id: "text",    icon: "text",    implemented: false },
+        { id: "blur",    icon: "blur",    implemented: false }
     ]
 
     readonly property var swatches: [
@@ -70,7 +71,7 @@ Item {
                 model: tb.tools
                 IconButton {
                     required property var modelData
-                    label: modelData.glyph
+                    icon: modelData.icon
                     active: tb.activeTool === modelData.id
                     dim: !modelData.implemented
                     onClicked: { if (modelData.implemented) tb.toolPicked(modelData.id); }
@@ -122,19 +123,19 @@ Item {
 
             Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 20; color: tb.sep; Layout.leftMargin: 3; Layout.rightMargin: 3 }
 
-            IconButton { label: "↶"; dim: !tb.canUndo; onClicked: { if (tb.canUndo) tb.undoRequested(); } }
-            IconButton { label: "↷"; dim: !tb.canRedo; onClicked: { if (tb.canRedo) tb.redoRequested(); } }
+            IconButton { icon: "undo"; dim: !tb.canUndo; onClicked: { if (tb.canUndo) tb.undoRequested(); } }
+            IconButton { icon: "redo"; dim: !tb.canRedo; onClicked: { if (tb.canRedo) tb.redoRequested(); } }
 
             Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 20; color: tb.sep; Layout.leftMargin: 3; Layout.rightMargin: 3 }
 
-            IconButton { label: "⧉"; onClicked: tb.copyRequested() }
-            IconButton { label: "▤"; onClicked: tb.saveRequested() }
+            IconButton { icon: "copy"; onClicked: tb.copyRequested() }
+            IconButton { icon: "save"; onClicked: tb.saveRequested() }
 
             Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 20; color: tb.sep; Layout.leftMargin: 3; Layout.rightMargin: 3 }
 
             IconButton {
                 id: gear
-                label: "⚙"
+                icon: "gear"
                 active: tb.settingsOpen
                 onClicked: { tb.settingsOpen = !tb.settingsOpen; tb.settingsRequested(); }
             }

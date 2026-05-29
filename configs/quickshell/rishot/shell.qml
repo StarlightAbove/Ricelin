@@ -56,7 +56,7 @@ ShellRoot {
     function isFreehand(t) { return t === "pen" || t === "marker"; }
 
     function beginDraw(gx, gy) {
-        if (!globalSel) return;
+        if (!globalSel || activeTool === "select") return;
         var p = clampToSel(gx, gy);
         pressPoint = p;
         if (isFreehand(activeTool))
@@ -300,6 +300,14 @@ ShellRoot {
             Component.onCompleted: root.overlays.push(win)
 
             function grabExport(path, cb) { ov.grabExport(path, cb); }
+            function grabToolbar(path, cb) {
+                var sched = toolbar.grabToImage(function (r) {
+                    var ok = false;
+                    try { ok = r ? r.saveToFile(path) : false; } catch (e) { ok = false; }
+                    if (cb) cb(ok);
+                });
+                if (!sched && cb) cb(false);
+            }
         }
     }
 
@@ -350,7 +358,10 @@ ShellRoot {
         onTriggered: {
             root.grabTo("/tmp/rishot-p3a.png", function (ok) {
                 console.log("rishot-test: annotated grab ok=" + ok);
-                root.doCopy();
+                var w = root.anchorOverlay();
+                if (w) w.grabToolbar("/tmp/rishot-toolbar.png", function (tok) {
+                    console.log("rishot-test: toolbar grab ok=" + tok);
+                });
             });
         }
     }

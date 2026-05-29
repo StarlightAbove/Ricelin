@@ -2,7 +2,7 @@ import QtQuick
 
 Rectangle {
     id: btn
-    property string label: ""
+    property string icon: ""
     property bool active: false
     property bool dim: false
 
@@ -15,11 +15,11 @@ Rectangle {
 
     readonly property color idle: "#c4ccda"
 
-    Text {
+    Icon {
         anchors.centerIn: parent
-        text: btn.label
-        color: btn.active ? "#ffffff" : (btn.dim ? Qt.rgba(0.77, 0.80, 0.85, 0.35) : btn.idle)
-        font.pixelSize: 16
+        name: btn.icon
+        size: 18
+        tint: btn.active ? "#ffffff" : (btn.dim ? Qt.rgba(0.77, 0.80, 0.85, 0.35) : btn.idle)
     }
 
     HoverHandler { id: hover }
