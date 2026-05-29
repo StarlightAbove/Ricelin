@@ -13,6 +13,8 @@ ShellRoot {
     property bool capturing: false
     property string phase: "selecting"
     property string activeTool: "rect"
+    property color activeColor: vermilion
+    property int activeWidth: 4
 
     property var model: Ann.create()
     property var draft: null
@@ -50,22 +52,43 @@ ShellRoot {
         var y = Math.max(globalSel.y, Math.min(gy, globalSel.y + globalSel.h));
         return { x: x, y: y };
     }
+    readonly property var freehandTools: ["pen", "marker"]
+    function isFreehand(t) { return t === "pen" || t === "marker"; }
+
     function beginDraw(gx, gy) {
-        if (!globalSel || activeTool !== "rect") return;
+        if (!globalSel) return;
         var p = clampToSel(gx, gy);
         pressPoint = p;
-        draft = { type: "rect", points: [p, p], color: vermilion, width: 3, filled: false };
+        if (isFreehand(activeTool))
+            draft = { type: activeTool, points: [p], color: activeColor, width: activeWidth };
+        else
+            draft = { type: activeTool, points: [p, p], color: activeColor, width: activeWidth, filled: false };
         bumpAnn();
     }
     function updateDraw(gx, gy) {
         if (!draft || !pressPoint) return;
-        draft.points = [pressPoint, clampToSel(gx, gy)];
+        var p = clampToSel(gx, gy);
+        if (isFreehand(draft.type)) {
+            var last = draft.points[draft.points.length - 1];
+            if (Math.abs(p.x - last.x) < 2 && Math.abs(p.y - last.y) < 2) return;
+            draft.points = draft.points.concat([p]);
+        } else {
+            draft.points = [pressPoint, p];
+        }
         bumpAnn();
     }
     function endDraw() {
         if (!draft) return;
-        var p0 = draft.points[0], p1 = draft.points[1];
-        if (Math.abs(p1.x - p0.x) > 2 && Math.abs(p1.y - p0.y) > 2) model.add(draft);
+        if (isFreehand(draft.type)) {
+            if (draft.points.length >= 2) model.add(draft);
+        } else {
+            var p0 = draft.points[0], p1 = draft.points[1];
+            var dx = Math.abs(p1.x - p0.x), dy = Math.abs(p1.y - p0.y);
+            var big = draft.type === "line" || draft.type === "arrow"
+                ? Math.hypot(dx, dy) > 4
+                : dx > 2 && dy > 2;
+            if (big) model.add(draft);
+        }
         draft = null;
         pressPoint = null;
         bumpAnn();
@@ -234,6 +257,8 @@ ShellRoot {
                     id: toolbar
                     visible: win.showToolbar && win.selLocal !== null
                     activeTool: root.activeTool
+                    activeColor: root.activeColor
+                    activeWidth: root.activeWidth
                     canUndo: root.model ? root.model.canUndo() : false
                     canRedo: root.model ? root.model.canRedo() : false
                     settingsOpen: root.settingsOpen
@@ -251,6 +276,8 @@ ShellRoot {
                     }
 
                     onToolPicked: (t) => root.activeTool = t
+                    onColorPicked: (c) => root.activeColor = c
+                    onWidthPicked: (w) => root.activeWidth = w
                     onUndoRequested: root.undo()
                     onRedoRequested: root.redo()
                     onCopyRequested: root.doCopy()
@@ -283,11 +310,34 @@ ShellRoot {
         onTriggered: {
             root.globalSel = { x: 2750, y: 350, w: 760, h: 480 };
             root.phase = "editing";
+            var bx = 2750, by = 350;
             root.model.add({
-                type: "rect",
-                points: [{ x: 2850, y: 450 }, { x: 3300, y: 700 }],
-                color: root.vermilion, width: 4, filled: false
+                type: "ellipse",
+                points: [{ x: bx + 40, y: by + 40 }, { x: bx + 240, y: by + 180 }],
+                color: "#4f8fe0", width: 4, filled: false
             });
+            root.model.add({
+                type: "line",
+                points: [{ x: bx + 300, y: by + 60 }, { x: bx + 700, y: by + 200 }],
+                color: "#f2c14e", width: 7, filled: false
+            });
+            root.model.add({
+                type: "arrow",
+                points: [{ x: bx + 60, y: by + 440 }, { x: bx + 360, y: by + 260 }],
+                color: "#e23b3b", width: 5, filled: false
+            });
+            var pen = [];
+            for (var i = 0; i <= 40; i++) {
+                var t = i / 40;
+                pen.push({ x: bx + 300 + t * 380, y: by + 320 + Math.sin(t * 6.2832) * 60 });
+            }
+            root.model.add({ type: "pen", points: pen, color: "#5bbf73", width: 3 });
+            var mk = [];
+            for (var j = 0; j <= 20; j++) {
+                var u = j / 20;
+                mk.push({ x: bx + 100 + u * 560, y: by + 410 });
+            }
+            root.model.add({ type: "marker", points: mk, color: "#f2c14e", width: 4 });
             root.bumpAnn();
             grabTimer.start();
         }
@@ -298,7 +348,7 @@ ShellRoot {
         interval: 250
         repeat: false
         onTriggered: {
-            root.grabTo("/tmp/rishot-p2-annotated.png", function (ok) {
+            root.grabTo("/tmp/rishot-p3a.png", function (ok) {
                 console.log("rishot-test: annotated grab ok=" + ok);
                 root.doCopy();
             });

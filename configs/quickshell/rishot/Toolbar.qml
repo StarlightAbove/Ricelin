@@ -7,6 +7,8 @@ Item {
     implicitHeight: glass.implicitHeight
 
     property string activeTool: "rect"
+    property color activeColor: "#e0563b"
+    property int activeWidth: 4
     property bool canUndo: false
     property bool canRedo: false
     property bool settingsOpen: false
@@ -14,6 +16,8 @@ Item {
     readonly property real gearCenterX: gear.x + row.x + gear.width / 2
 
     signal toolPicked(string tool)
+    signal colorPicked(color c)
+    signal widthPicked(int w)
     signal undoRequested()
     signal redoRequested()
     signal copyRequested()
@@ -28,13 +32,23 @@ Item {
 
     readonly property var tools: [
         { id: "rect",    glyph: "▭", implemented: true },
-        { id: "ellipse", glyph: "◯", implemented: false },
-        { id: "line",    glyph: "╱", implemented: false },
-        { id: "arrow",   glyph: "↗", implemented: false },
-        { id: "pen",     glyph: "✎", implemented: false },
+        { id: "ellipse", glyph: "◯", implemented: true },
+        { id: "line",    glyph: "╱", implemented: true },
+        { id: "arrow",   glyph: "↗", implemented: true },
+        { id: "pen",     glyph: "✎", implemented: true },
+        { id: "marker",  glyph: "▰", implemented: true },
         { id: "text",    glyph: "T", implemented: false },
-        { id: "marker",  glyph: "▰", implemented: false },
         { id: "blur",    glyph: "▒", implemented: false }
+    ]
+
+    readonly property var swatches: [
+        "#e0563b", "#ffffff", "#1a1a1a", "#e23b3b", "#f2c14e", "#5bbf73", "#4f8fe0"
+    ]
+
+    readonly property var widths: [
+        { id: 2, dot: 5 },
+        { id: 4, dot: 9 },
+        { id: 7, dot: 13 }
     ]
 
     Rectangle {
@@ -60,6 +74,49 @@ Item {
                     active: tb.activeTool === modelData.id
                     dim: !modelData.implemented
                     onClicked: { if (modelData.implemented) tb.toolPicked(modelData.id); }
+                }
+            }
+
+            Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 20; color: tb.sep; Layout.leftMargin: 3; Layout.rightMargin: 3 }
+
+            Repeater {
+                model: tb.swatches
+                Rectangle {
+                    required property var modelData
+                    Layout.preferredWidth: 18
+                    Layout.preferredHeight: 18
+                    radius: 9
+                    color: modelData
+                    readonly property bool sel: Qt.colorEqual(tb.activeColor, modelData)
+                    border.color: sel ? "#ffffff" : Qt.rgba(1, 1, 1, 0.18)
+                    border.width: sel ? 2 : 1
+                    HoverHandler { id: swHover }
+                    scale: swHover.hovered ? 1.12 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 90 } }
+                    TapHandler { onTapped: tb.colorPicked(modelData) }
+                }
+            }
+
+            Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 20; color: tb.sep; Layout.leftMargin: 3; Layout.rightMargin: 3 }
+
+            Repeater {
+                model: tb.widths
+                Rectangle {
+                    required property var modelData
+                    Layout.preferredWidth: 26
+                    Layout.preferredHeight: 26
+                    radius: 6
+                    readonly property bool sel: tb.activeWidth === modelData.id
+                    color: sel ? tb.vermilion : (whHover.hovered ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
+                    HoverHandler { id: whHover }
+                    TapHandler { onTapped: tb.widthPicked(modelData.id) }
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: modelData.dot
+                        height: modelData.dot
+                        radius: width / 2
+                        color: parent.sel ? "#ffffff" : tb.idle
+                    }
                 }
             }
 
