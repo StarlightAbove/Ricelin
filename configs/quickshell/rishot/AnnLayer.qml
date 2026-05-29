@@ -66,10 +66,12 @@ Item {
             id: cell
             required property var modelData
             readonly property var a: modelData
-            readonly property bool valid: a !== undefined && a !== null && a.points !== undefined && a.points.length >= 2
-            readonly property string kind: valid ? a.type : ""
+            readonly property bool present: a !== undefined && a !== null && a.points !== undefined
+            readonly property bool isText: present && a.type === "text" && a.points.length >= 1
+            readonly property bool valid: present && a.points.length >= 2 && a.type !== "blur"
+            readonly property string kind: valid ? a.type : (isText ? "text" : "")
             anchors.fill: parent
-            visible: valid
+            visible: valid || isText
 
             Rectangle {
                 visible: cell.valid && cell.kind === "rect"
@@ -160,6 +162,18 @@ Item {
                     PathLine { x: headShape.pts ? headShape.pts.b.x : 0; y: headShape.pts ? headShape.pts.b.y : 0 }
                     PathLine { x: headShape.pts ? headShape.pts.tip.x : 0; y: headShape.pts ? headShape.pts.tip.y : 0 }
                 }
+            }
+
+            Text {
+                visible: cell.isText && cell.a !== canvas.draft
+                x: cell.isText ? cell.a.points[0].x - canvas.sx : 0
+                y: cell.isText ? cell.a.points[0].y - canvas.sy : 0
+                text: cell.isText ? (cell.a.text || "") : ""
+                color: cell.isText ? cell.a.color : "transparent"
+                font.family: "Inter"
+                font.pixelSize: cell.isText ? cell.a.size : 16
+                textFormat: Text.PlainText
+                renderType: Text.NativeRendering
             }
         }
     }

@@ -20,6 +20,9 @@ ShellRoot {
     property var draft: null
     property int annRevision: 0
     property bool settingsOpen: false
+    property bool textEditing: false
+
+    function textSize() { return activeWidth * 5 + 8; }
 
     property var overlays: []
     property int frozenCount: 0
@@ -55,8 +58,30 @@ ShellRoot {
     readonly property var freehandTools: ["pen", "marker"]
     function isFreehand(t) { return t === "pen" || t === "marker"; }
 
+    function placeText(gx, gy) {
+        if (textEditing) { commitText(); return; }
+        var p = clampToSel(gx, gy);
+        draft = { type: "text", points: [p], color: activeColor, text: "", size: textSize() };
+        textEditing = true;
+        bumpAnn();
+    }
+    function commitText() {
+        if (draft && draft.type === "text") {
+            if (draft.text && draft.text.length > 0) model.add(draft);
+        }
+        draft = null;
+        textEditing = false;
+        bumpAnn();
+    }
+    function cancelText() {
+        draft = null;
+        textEditing = false;
+        bumpAnn();
+    }
+
     function beginDraw(gx, gy) {
         if (!globalSel || activeTool === "select") return;
+        if (activeTool === "text") { placeText(gx, gy); return; }
         var p = clampToSel(gx, gy);
         pressPoint = p;
         capturing = true;
@@ -67,7 +92,7 @@ ShellRoot {
         bumpAnn();
     }
     function updateDraw(gx, gy) {
-        if (!draft || !pressPoint) return;
+        if (!draft || !pressPoint || draft.type === "text") return;
         var p = clampToSel(gx, gy);
         if (isFreehand(draft.type)) {
             var last = draft.points[draft.points.length - 1];
@@ -80,7 +105,7 @@ ShellRoot {
     }
     function endDraw() {
         capturing = false;
-        if (!draft) return;
+        if (!draft || draft.type === "text") return;
         if (isFreehand(draft.type)) {
             if (draft.points.length >= 2) model.add(draft);
         } else {
@@ -232,8 +257,13 @@ ShellRoot {
                 anchors.fill: parent
                 focus: true
 
-                Keys.onEscapePressed: { if (root.settingsOpen) root.settingsOpen = false; else Qt.quit(); }
+                Keys.onEscapePressed: {
+                    if (root.textEditing) root.cancelText();
+                    else if (root.settingsOpen) root.settingsOpen = false;
+                    else Qt.quit();
+                }
                 Keys.onPressed: (e) => {
+                    if (root.textEditing) return;
                     if (e.key === Qt.Key_C && (e.modifiers & Qt.ControlModifier)) { root.doCopy(); e.accepted = true; }
                     else if (e.key === Qt.Key_Z && (e.modifiers & Qt.ControlModifier)) { root.undo(); e.accepted = true; }
                     else if (e.key === Qt.Key_Y && (e.modifiers & Qt.ControlModifier)) { root.redo(); e.accepted = true; }
@@ -248,11 +278,14 @@ ShellRoot {
                     model: root.model
                     draft: root.draft
                     annRevision: root.annRevision
+                    textEditing: root.textEditing
 
                     onPressedAt: (gx, gy) => root.pointerPressed(gx, gy)
                     onMovedTo: (gx, gy) => root.pointerMoved(gx, gy)
                     onReleased: root.pointerReleased()
                     onFrozen: root.noteFrozen()
+                    onTextChanged: (t) => { if (root.draft && root.draft.type === "text") { root.draft.text = t; root.bumpAnn(); } }
+                    onTextCommitted: root.commitText()
                 }
 
                 Toolbar {
@@ -277,7 +310,7 @@ ShellRoot {
                         return Math.max(8, below);
                     }
 
-                    onToolPicked: (t) => root.activeTool = t
+                    onToolPicked: (t) => { if (root.textEditing) root.commitText(); root.activeTool = t; }
                     onColorPicked: (c) => root.activeColor = c
                     onWidthPicked: (w) => root.activeWidth = w
                     onUndoRequested: root.undo()
@@ -348,6 +381,15 @@ ShellRoot {
                 mk.push({ x: bx + 100 + u * 560, y: by + 410 });
             }
             root.model.add({ type: "marker", points: mk, color: "#f2c14e", width: 4 });
+            root.model.add({
+                type: "blur",
+                points: [{ x: bx + 40, y: by + 230 }, { x: bx + 360, y: by + 330 }]
+            });
+            root.model.add({
+                type: "text",
+                points: [{ x: bx + 60, y: by + 20 }],
+                color: "#ffffff", text: "rishot p3b", size: 28
+            });
             root.bumpAnn();
             grabTimer.start();
         }
@@ -358,7 +400,7 @@ ShellRoot {
         interval: 250
         repeat: false
         onTriggered: {
-            root.grabTo("/tmp/rishot-p3a.png", function (ok) {
+            root.grabTo("/tmp/rishot-p3b.png", function (ok) {
                 console.log("rishot-test: annotated grab ok=" + ok);
                 var w = root.anchorOverlay();
                 if (w) w.grabToolbar("/tmp/rishot-toolbar.png", function (tok) {

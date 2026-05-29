@@ -1,4 +1,5 @@
 import QtQuick
+import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Wayland
 import "lib/coords.js" as Coords
@@ -15,11 +16,14 @@ Item {
     property var model: null
     property var draft: null
     property int annRevision: 0
+    property bool textEditing: false
 
     signal pressedAt(real gx, real gy)
     signal movedTo(real gx, real gy)
     signal released()
     signal frozen()
+    signal textChanged(string t)
+    signal textCommitted()
 
     readonly property int sx: screenData.x
     readonly property int sy: screenData.y
@@ -41,6 +45,51 @@ Item {
             captureSource: overlay.screenData
             live: false
             paintCursor: false
+        }
+
+        function blurItems() {
+            var src = overlay.model ? overlay.model.items : [];
+            var out = [];
+            for (var i = 0; i < src.length; i++)
+                if (src[i] && src[i].type === "blur") out.push(src[i]);
+            if (overlay.draft && overlay.draft.type === "blur") out.push(overlay.draft);
+            return out;
+        }
+
+        Repeater {
+            model: { overlay.annRevision; return scene.blurItems(); }
+
+            Item {
+                required property var modelData
+                readonly property var a: modelData
+                readonly property bool valid: a !== undefined && a !== null && a.points !== undefined && a.points.length >= 2
+                readonly property real rx: valid ? Math.min(a.points[0].x, a.points[1].x) - overlay.sx : 0
+                readonly property real ry: valid ? Math.min(a.points[0].y, a.points[1].y) - overlay.sy : 0
+                readonly property real rw: valid ? Math.abs(a.points[1].x - a.points[0].x) : 0
+                readonly property real rh: valid ? Math.abs(a.points[1].y - a.points[0].y) : 0
+                x: rx
+                y: ry
+                width: rw
+                height: rh
+                visible: valid && rw > 0 && rh > 0
+                clip: true
+
+                ShaderEffectSource {
+                    id: blurSrc
+                    sourceItem: frozen
+                    anchors.fill: parent
+                    live: false
+                    recursive: false
+                    sourceRect: Qt.rect(parent.rx, parent.ry, parent.rw, parent.rh)
+                    visible: false
+                }
+
+                FastBlur {
+                    anchors.fill: parent
+                    source: blurSrc
+                    radius: 64
+                }
+            }
         }
 
         AnnLayer {
@@ -190,5 +239,29 @@ Item {
         onPressed: (m) => overlay.pressedAt(m.x + overlay.sx, m.y + overlay.sy)
         onPositionChanged: (m) => { if (overlay.capturing) overlay.movedTo(m.x + overlay.sx, m.y + overlay.sy); }
         onReleased: overlay.released()
+    }
+
+    TextInput {
+        id: textEdit
+        readonly property bool mine: overlay.textEditing && overlay.draft
+            && overlay.draft.type === "text" && overlay.localSel !== null
+            && (overlay.draft.points[0].x >= overlay.sx) && (overlay.draft.points[0].x < overlay.sx + overlay.width)
+            && (overlay.draft.points[0].y >= overlay.sy) && (overlay.draft.points[0].y < overlay.sy + overlay.height)
+        visible: mine
+        enabled: mine
+        x: mine ? overlay.draft.points[0].x - overlay.sx : 0
+        y: mine ? overlay.draft.points[0].y - overlay.sy : 0
+        color: mine ? overlay.draft.color : "transparent"
+        font.family: "Inter"
+        font.pixelSize: mine ? overlay.draft.size : 16
+        renderType: Text.NativeRendering
+        cursorVisible: mine
+        autoScroll: false
+        onTextEdited: overlay.textChanged(text)
+        onMineChanged: if (mine) { text = overlay.draft.text || ""; forceActiveFocus(); }
+        Keys.onPressed: (e) => {
+            if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { overlay.textCommitted(); e.accepted = true; }
+            else if (e.key === Qt.Key_Escape) { e.accepted = false; }
+        }
     }
 }

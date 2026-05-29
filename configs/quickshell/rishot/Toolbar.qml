@@ -38,8 +38,8 @@ Item {
         { id: "arrow",   icon: "arrow",   implemented: true },
         { id: "pen",     icon: "pen",     implemented: true },
         { id: "marker",  icon: "marker",  implemented: true },
-        { id: "text",    icon: "text",    implemented: false },
-        { id: "blur",    icon: "blur",    implemented: false }
+        { id: "text",    icon: "text",    implemented: true },
+        { id: "blur",    icon: "blur",    implemented: true }
     ]
 
     readonly property var swatches: [
