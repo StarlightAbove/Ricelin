@@ -12,10 +12,7 @@ ShellRoot {
     property var usage: ({})
     property bool shown: false
 
-    readonly property var focusedScreen: {
-        var m = Hyprland.focusedMonitor;
-        return m && m.screen ? m.screen : Quickshell.screens[0];
-    }
+    onShownChanged: if (shown) root.query = "";
 
     IpcHandler {
         target: "launcher"
@@ -64,48 +61,48 @@ ShellRoot {
         root.shown = false;
     }
 
-    PanelWindow {
-        id: win
-        visible: root.shown
-        screen: root.focusedScreen
-        color: "transparent"
-        exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-        WlrLayershell.namespace: "launcher"
+    LazyLoader {
+        active: root.shown
 
-        anchors { top: true; left: true; right: true; bottom: true }
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked: root.shown = false
-        }
-
-        Launcher {
-            id: launcher
-            anchors.centerIn: parent
-
-            entries: root.results
-            total: root.totalCount
-
-            onLaunch: (entry) => root.run(entry)
-            onQuit: root.shown = false
-        }
-
-        Connections {
-            target: launcher
-            function onQueryChanged() {
-                root.query = launcher.query;
-                launcher.selectedIndex = 0;
+        PanelWindow {
+            id: win
+            screen: {
+                var m = Hyprland.focusedMonitor;
+                return m && m.screen ? m.screen : Quickshell.screens[0];
             }
-        }
+            color: "transparent"
+            exclusionMode: ExclusionMode.Ignore
+            WlrLayershell.layer: WlrLayer.Overlay
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+            WlrLayershell.namespace: "launcher"
 
-        onVisibleChanged: {
-            if (visible) {
-                launcher.query = "";
-                launcher.selectedIndex = 0;
-                launcher.focusField();
+            anchors { top: true; left: true; right: true; bottom: true }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.shown = false
             }
+
+            Launcher {
+                id: launcher
+                anchors.centerIn: parent
+
+                entries: root.results
+                total: root.totalCount
+
+                onLaunch: (entry) => root.run(entry)
+                onQuit: root.shown = false
+            }
+
+            Connections {
+                target: launcher
+                function onQueryChanged() {
+                    root.query = launcher.query;
+                    launcher.selectedIndex = 0;
+                }
+            }
+
+            Component.onCompleted: launcher.focusField()
         }
     }
 }
