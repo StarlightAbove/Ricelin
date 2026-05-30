@@ -23,6 +23,9 @@ configs/partition-day-sequence.md
 # Hyprland auto-generates this stub if no .conf found — never track
 configs/hypr/hyprland.conf
 
+# Local-only hypr binds (machine-specific scripts, not for public rice)
+configs/hypr/modules/private.lua
+
 # Brainstorm mockups — local only
 .superpowers/
 

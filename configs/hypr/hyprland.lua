@@ -6,3 +6,5 @@ require("modules.animations")
 require("modules.binds")
 require("modules.rishot")
 require("modules.autostart")
+
+pcall(require, "modules.private")
