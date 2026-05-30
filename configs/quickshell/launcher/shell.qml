@@ -66,6 +66,7 @@ ShellRoot {
 
         PanelWindow {
             id: win
+            visible: true
             screen: {
                 var m = Hyprland.focusedMonitor;
                 return m && m.screen ? m.screen : Quickshell.screens[0];
