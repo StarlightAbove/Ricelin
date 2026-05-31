@@ -1,6 +1,5 @@
-hl.exec_cmd("sh -c 'pgrep -f \"wl-paste --type text --watch cliphist\" >/dev/null || wl-paste --type text --watch cliphist store &'")
-hl.exec_cmd("sh -c 'pgrep -f \"wl-paste --type image --watch cliphist\" >/dev/null || wl-paste --type image --watch cliphist store &'")
+hl.exec_cmd(os.getenv("HOME") .. "/.config/hypr/scripts/cliphist-watch.sh")
 hl.exec_cmd(os.getenv("HOME") .. "/.config/hypr/scripts/wallpaper.sh init")
 hl.exec_cmd("hyprctl setcursor Bibata-Modern-Ice 24")
 hl.exec_cmd("systemctl --user start hyprpolkitagent")
-hl.exec_cmd("sh -c 'pgrep -f \"qs -c launcher\" >/dev/null || qs -c launcher -d'")
+hl.exec_cmd(os.getenv("HOME") .. "/.config/hypr/scripts/launcher-daemon.sh")
