@@ -62,7 +62,7 @@ ShellRoot {
         PanelWindow {
             id: win
             required property var modelData
-            readonly property real s: modelData ? modelData.height / 1080 : 1
+            readonly property real s: modelData ? Math.min(modelData.height / 1080, 1.0) : 1
 
             screen: modelData
             visible: root.shown && (root.targetMonitor === "" || root.targetMonitor === modelData.name)

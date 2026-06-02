@@ -199,7 +199,6 @@ Card {
         Slider {
             s: root.s
             value: volRow.value
-            throttleMs: 0
             anchors.left: vicon.right
             anchors.leftMargin: 12 * root.s
             anchors.right: vval.left

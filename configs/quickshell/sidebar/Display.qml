@@ -17,7 +17,7 @@ Card {
 
     function applyBrightness(pct) {
         var p = Math.max(5, Math.min(100, Math.round(pct)));
-        Quickshell.execDetached(["bash", "-c", "ddcutil setvcp 10 " + p + " --bus 3 --noverify & ddcutil setvcp 10 " + p + " --bus 4 --noverify & wait"]);
+        Quickshell.execDetached(["bash", "-c", "timeout 3 ddcutil setvcp 10 " + p + " --bus 3 --noverify & timeout 3 ddcutil setvcp 10 " + p + " --bus 4 --noverify & wait"]);
     }
 
     function applyVibrance(pct) {
@@ -38,7 +38,7 @@ Card {
 
     Process {
         id: brRead
-        command: ["ddcutil", "getvcp", "10", "--bus", "3", "--brief"]
+        command: ["timeout", "3", "ddcutil", "getvcp", "10", "--bus", "3", "--brief"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
@@ -60,7 +60,6 @@ Card {
         property string icon: ""
         property real value: 0.5
         property string valueLabel: ""
-        property int throttleMs: 0
         signal moved(real v)
         signal committed(real v)
         width: parent ? parent.width : 0
@@ -101,7 +100,6 @@ Card {
         Slider {
             s: root.s
             value: parent.value
-            throttleMs: parent.throttleMs
             anchors.left: vicon.right
             anchors.leftMargin: 12 * root.s
             anchors.right: vval.left
@@ -126,7 +124,6 @@ Card {
             icon: "sun"
             value: root.brightness / 100
             valueLabel: root.brightness + "%"
-            throttleMs: 300
             onMoved: (v) => root.brightness = Math.round(v * 100)
             onCommitted: (v) => root.applyBrightness(v * 100)
         }
@@ -146,12 +143,8 @@ Card {
             icon: "monitor"
             value: root.vibrance / 100
             valueLabel: root.vibrance + "%"
-            throttleMs: 100
-            onMoved: (v) => {
-                root.vibrance = Math.round(v * 100);
-                root.applyVibrance(v * 100);
-            }
-            onCommitted: (v) => root.saveVibrance(v * 100)
+            onMoved: (v) => root.vibrance = Math.round(v * 100)
+            onCommitted: (v) => { root.applyVibrance(v * 100); root.saveVibrance(v * 100); }
         }
     }
 }

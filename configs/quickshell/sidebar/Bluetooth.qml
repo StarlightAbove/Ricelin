@@ -80,6 +80,35 @@ Card {
         }
 
         Rectangle {
+            id: scanBtn
+            visible: root.adapter && root.adapter.enabled
+            anchors.right: toggle.left
+            anchors.rightMargin: 8 * root.s
+            anchors.verticalCenter: parent.verticalCenter
+            radius: 8 * root.s
+            property bool scanning: root.adapter ? root.adapter.discovering : false
+            color: scanning ? Theme.accent16 : Theme.tileBg
+            border.width: 1
+            border.color: scanning ? Theme.accent45 : Theme.border
+            implicitHeight: 21 * root.s
+            width: scanTxt.implicitWidth + 18 * root.s
+            height: implicitHeight
+            Text {
+                id: scanTxt
+                anchors.centerIn: parent
+                text: scanBtn.scanning ? "Scanning…" : "Scan"
+                color: scanBtn.scanning ? Theme.vermLit : Theme.dim
+                font.family: Theme.font
+                font.pixelSize: 10 * root.s
+                font.weight: Font.DemiBold
+            }
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: if (root.adapter) root.adapter.discovering = !root.adapter.discovering
+            }
+        }
+        Rectangle {
             id: toggle
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
@@ -118,7 +147,7 @@ Card {
             visible: root.devices.length === 0
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-            text: "No devices"
+            text: (root.adapter && root.adapter.discovering) ? "Searching…" : "No devices"
             color: Theme.dim
             font.family: Theme.font
             font.pixelSize: 11 * root.s

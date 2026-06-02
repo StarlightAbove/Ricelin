@@ -5,7 +5,6 @@ Item {
     id: root
     property real s: 1
     property real value: 0.5
-    property int throttleMs: 0
     signal moved(real v)
     signal committed(real v)
 
@@ -33,19 +32,12 @@ Item {
             x: Math.max(0, Math.min(1, root.value)) * parent.width - width / 2
         }
     }
-    Timer {
-        id: throttle
-        interval: root.throttleMs; repeat: false
-        onTriggered: root.committed(root.value)
-    }
     MouseArea {
         anchors.fill: parent
         anchors.margins: -8 * root.s
         function setFromX(mx) {
             var v = Math.max(0, Math.min(1, mx / width));
             root.value = v; root.moved(v);
-            if (root.throttleMs > 0) { if (!throttle.running) throttle.start(); }
-            else root.committed(v);
         }
         onPressed: (e) => setFromX(e.x)
         onPositionChanged: (e) => { if (pressed) setFromX(e.x); }

@@ -22,10 +22,8 @@ Item {
         border.width: 1
         border.color: Theme.border
 
-        x: sidebar.opened ? 0 : sidebar.panelWidth + 16 * s
         opacity: sidebar.opened ? 1 : 0
-        Behavior on x { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-        Behavior on opacity { NumberAnimation { duration: 180 } }
+        Behavior on opacity { NumberAnimation { duration: 90 } }
 
         gradient: Gradient {
             GradientStop { position: 0.0; color: Theme.cardTop }
