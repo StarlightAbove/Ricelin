@@ -85,14 +85,16 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                     onClicked: (mouse) => {
-                        if (mouse.button === Qt.RightButton) {
-                            tray.showMenu(slot.modelData, slot);
-                        } else if (mouse.button === Qt.MiddleButton) {
+                        if (mouse.button === Qt.MiddleButton) {
                             slot.modelData.secondaryActivate();
-                        } else if (slot.modelData.onlyMenu) {
+                        } else if (mouse.button === Qt.RightButton) {
                             tray.showMenu(slot.modelData, slot);
                         } else {
-                            slot.modelData.activate();
+                            var entry = DesktopEntries.heuristicLookup(slot.modelData.id);
+                            if (entry)
+                                entry.execute();
+                            else
+                                slot.modelData.activate();
                         }
                     }
                     onWheel: (wheel) => {

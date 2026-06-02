@@ -15,6 +15,11 @@ ShellRoot {
 
     Component.onCompleted: refresh()
 
+    Instantiator {
+        model: DesktopEntries.applications
+        delegate: QtObject {}
+    }
+
     Connections {
         target: Hyprland
         function onRawEvent(event) { root.refresh(); }
