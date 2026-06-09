@@ -33,6 +33,7 @@ ShellRoot {
     function refresh() {
         Hyprland.refreshMonitors();
         Hyprland.refreshWorkspaces();
+        Hyprland.refreshToplevels();
     }
 
     Component.onCompleted: refresh()

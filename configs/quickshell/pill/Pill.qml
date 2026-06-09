@@ -357,6 +357,23 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 12 * pill.s
 
+                MinimizedTray {
+                    id: minimized
+                    anchors.verticalCenter: parent.verticalCenter
+                    s: pill.s
+                    enabled: hover.live
+                    visible: count > 0
+                }
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: minimized.count > 0
+                    width: 1
+                    height: 14 * pill.s
+                    color: Theme.hair
+                    opacity: 0.7
+                }
+
                 Tray {
                     anchors.verticalCenter: parent.verticalCenter
                     s: pill.s
