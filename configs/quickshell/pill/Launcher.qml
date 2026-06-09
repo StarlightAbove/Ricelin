@@ -277,7 +277,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.right: ret.left
                     text: appRow.secondary
-                    color: appRow.selected ? Qt.rgba(1, 0.965, 0.941, 0.7) : Theme.faint
+                    color: appRow.selected ? Theme.creamSelected : Theme.faint
                     font.family: Theme.font
                     font.pixelSize: 10.5 * root.s
                     horizontalAlignment: Text.AlignRight

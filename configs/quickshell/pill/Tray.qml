@@ -241,7 +241,7 @@ Item {
                                     anchors.rightMargin: 14 * tray.s
                                     text: entry.modelData.text
                                     color: !entry.modelData.enabled ? Theme.dim
-                                        : (rowArea.containsMouse ? Theme.cream : Qt.rgba(230 / 255, 214 / 255, 203 / 255, 0.82))
+                                        : (rowArea.containsMouse ? Theme.cream : Theme.creamMenu)
                                     font.family: Theme.font
                                     font.pixelSize: 13 * tray.s
                                     font.weight: rowArea.containsMouse ? Font.DemiBold : Font.Normal
