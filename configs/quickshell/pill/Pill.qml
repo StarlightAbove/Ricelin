@@ -175,7 +175,8 @@ Item {
             : (pill.expanded && musicActive ? "held" : "orbit"))
     }
 
-    onFlameSurfaceChanged: surfaceFlamePhase = "fly"
+    onMediaOpenChanged: if (mediaOpen) surfaceFlamePhase = "fly"
+    onLauncherOpenChanged: if (launcherOpen) surfaceFlamePhase = "fly"
 
     Connections {
         target: flame
