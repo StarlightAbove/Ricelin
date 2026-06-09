@@ -361,6 +361,7 @@ Item {
                     id: minimized
                     anchors.verticalCenter: parent.verticalCenter
                     s: pill.s
+                    screenName: pill.screenName
                     enabled: hover.live
                     visible: count > 0
                 }

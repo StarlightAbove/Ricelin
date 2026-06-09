@@ -14,7 +14,21 @@ Row {
     id: root
 
     property real s: 1
+    property string screenName: ""
     spacing: 8 * s
+
+    /**
+     * Resolve the workspace id to restore into: the active workspace of the
+     * monitor this pill lives on, so a window reappears on the screen the user
+     * clicked, falling back to the focused workspace.
+     */
+    function restoreWorkspace() {
+        var ms = Hyprland.monitors.values;
+        for (var i = 0; i < ms.length; i++)
+            if (ms[i].name === root.screenName && ms[i].activeWorkspace)
+                return ms[i].activeWorkspace.id;
+        return Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1;
+    }
 
     readonly property var items: {
         var out = [];
@@ -77,8 +91,10 @@ Row {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    var ws = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1;
-                    Hyprland.dispatch('hl.dsp.window.move({ workspace = ' + ws + ', window = "address:' + chip.modelData.address + '" })');
+                    var addr = chip.modelData.address;
+                    if (addr.indexOf("0x") !== 0)
+                        addr = "0x" + addr;
+                    Hyprland.dispatch('hl.dsp.window.move({ workspace = ' + root.restoreWorkspace() + ', window = "address:' + addr + '" })');
                 }
             }
         }
