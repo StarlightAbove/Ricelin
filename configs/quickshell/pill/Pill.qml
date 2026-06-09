@@ -158,7 +158,7 @@ Item {
         s: pill.s
         pillW: pill.width
         pillH: pill.height
-        musicActive: pill.hasMedia
+        musicActive: Cava.active
         pulse: Cava.values && Cava.values.length
             ? Cava.values.reduce((a, b) => a + b, 0) / Cava.values.length
             : 0
