@@ -634,8 +634,8 @@ Item {
     Media {
         id: media
         anchors.fill: parent
+        anchors.margins: 15 * pill.s
         s: pill.s
-        radius: pill.morphRadius
         active: pill.mediaOpen
         enabled: pill.mediaOpen
         opacity: pill.mediaOpen ? 1 : 0
