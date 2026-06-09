@@ -140,7 +140,7 @@ Item {
             }
         }
 
-        Text {
+        Marquee {
             id: titleText
             anchors.top: marker.bottom
             anchors.topMargin: 7 * root.s
@@ -148,21 +148,19 @@ Item {
             anchors.right: parent.right
             text: root.title
             color: Theme.cream
-            font.family: Theme.font
-            font.pixelSize: 16 * root.s
-            font.weight: Font.DemiBold
-            elide: Text.ElideRight
+            pixelSize: 16 * root.s
+            weight: Font.DemiBold
+            active: root.active
         }
-        Text {
+        Marquee {
             anchors.top: titleText.bottom
             anchors.topMargin: 2 * root.s
             anchors.left: parent.left
             anchors.right: parent.right
             text: root.artist
             color: Theme.dim
-            font.family: Theme.font
-            font.pixelSize: 12 * root.s
-            elide: Text.ElideRight
+            pixelSize: 12 * root.s
+            active: root.active
             visible: text.length > 0
         }
 
