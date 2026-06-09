@@ -139,18 +139,11 @@ Item {
         width: Math.round(19 * root.s)
         height: Math.round(19 * root.s)
 
-        Image {
+        GlyphIcon {
             anchors.fill: parent
-            source: Qt.resolvedUrl("assets/icons/" + root.icon + ".svg")
-            sourceSize.width: Math.round(parent.width)
-            sourceSize.height: Math.round(parent.height)
-            fillMode: Image.PreserveAspectFit
-            smooth: true
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                colorization: 1.0
-                colorizationColor: Theme.iconDim
-            }
+            name: root.icon
+            color: Theme.iconDim
+            stroke: 1.9
         }
     }
 }
