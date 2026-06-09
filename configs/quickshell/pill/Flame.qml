@@ -69,16 +69,32 @@ Item {
     property point flyStart: Qt.point(0, 0)
     property point flyCtrl: Qt.point(0, 0)
 
+    property var sparkTargets: []
+    property real sparkT: 0
+    property point sparkStart: Qt.point(0, 0)
+    property real headFade: 1
+
     onModeChanged: {
         if (mode !== "lap") {
             lapFade = 1;
             lapAnim.stop();
+        }
+        if (mode !== "spark") {
+            headFade = 1;
+            sparkAnim.stop();
+            headFadeAnim.stop();
         }
         if (mode === "fly") {
             flyStart = Qt.point(px, py);
             flyCtrl = Qt.point((px + flyTarget.x) / 2, Math.min(py, flyTarget.y) - pillH);
             flyT = 0;
             flyAnim.restart();
+        } else if (mode === "spark") {
+            sparkStart = Qt.point(px, py);
+            sparkT = 0;
+            headFade = 1;
+            headFadeAnim.restart();
+            sparkAnim.restart();
         } else if (mode === "dock" || mode === "caret") {
             px = dockPoint.x;
             py = dockPoint.y;
@@ -127,6 +143,26 @@ Item {
         onFinished: root.flightDone()
     }
 
+    NumberAnimation {
+        id: sparkAnim
+        target: root
+        property: "sparkT"
+        from: 0
+        to: 1
+        duration: 420
+        easing.type: Easing.OutCubic
+    }
+
+    NumberAnimation {
+        id: headFadeAnim
+        target: root
+        property: "headFade"
+        from: 1
+        to: 0
+        duration: Motion.fast
+        easing.type: Easing.OutCubic
+    }
+
     FrameAnimation {
         running: root.visible && root.mode === "orbit"
         onTriggered: {
@@ -169,6 +205,30 @@ Item {
         }
     }
 
+    Repeater {
+        model: 4
+        delegate: Rectangle {
+            id: spark
+            required property int index
+
+            readonly property bool live: root.mode === "spark" && root.sparkTargets.length === 4
+            readonly property point target: live ? root.sparkTargets[index] : Qt.point(0, 0)
+            readonly property real sz: (5 - 3 * root.sparkT) * root.s
+
+            visible: live
+            width: sz
+            height: sz
+            radius: sz / 2
+            antialiasing: true
+            x: (root.sparkStart.x + (target.x - root.sparkStart.x) * root.sparkT) - sz / 2
+            y: (root.sparkStart.y + (target.y - root.sparkStart.y) * root.sparkT) - sz / 2
+            color: Qt.rgba(Theme.flameCore.r + (Theme.flameGlow.r - Theme.flameCore.r) * root.sparkT,
+                           Theme.flameCore.g + (Theme.flameGlow.g - Theme.flameCore.g) * root.sparkT,
+                           Theme.flameCore.b + (Theme.flameGlow.b - Theme.flameCore.b) * root.sparkT,
+                           1 - root.sparkT)
+        }
+    }
+
     readonly property real heatScale: 1 - 0.4 * root.heat
 
     Rectangle {
@@ -197,7 +257,7 @@ Item {
         x: root.px - width / 2
         y: root.py - height / 2
         color: Theme.flameCore
-        opacity: ((root.musicActive || root.mode !== "orbit") ? 1 : 0.45) * root.lapFade
+        opacity: ((root.musicActive || root.mode !== "orbit") ? 1 : 0.45) * root.lapFade * root.headFade
 
         SequentialAnimation on scale {
             running: root.visible && root.mode !== "caret"

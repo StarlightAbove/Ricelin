@@ -29,6 +29,16 @@ Item {
     readonly property bool surfaceHovered: hoverTracker.hovered
 
     /**
+     * Tick centres of the four faders, mapped to this mixer's root. Snapshotted
+     * on demand (at mixer open) for the flame's spark scatter — not live-bound.
+     */
+    function tickPoints() {
+        return faders.map(function (f) {
+            return f.mapToItem(root, f.tickCenter.x, f.tickCenter.y);
+        });
+    }
+
+    /**
      * Pointer-driven fader targeting. MouseArea hover delivery is unreliable on
      * this layer-shell surface, so a non-blocking HoverHandler is the single
      * hover source: its pointer x maps to a fader column, which drives keyboard

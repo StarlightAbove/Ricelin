@@ -24,6 +24,8 @@ Item {
 
     readonly property real trackH: 86 * s
 
+    readonly property point tickCenter: tick.mapToItem(root, tick.width / 2, tick.height / 2)
+
     implicitWidth: 54 * s
     implicitHeight: trackH + 44 * s
 

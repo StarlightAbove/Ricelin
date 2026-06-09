@@ -57,9 +57,11 @@ Item {
                 Rectangle {
                     anchors.fill: parent
                     radius: 6 * tray.s
-                    color: Theme.sheen
+                    color: Theme.frameBg
+                    border.width: 1
+                    border.color: Theme.frameBorder
                     opacity: area.containsMouse ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                    Behavior on opacity { NumberAnimation { duration: Motion.fast } }
                 }
 
                 Image {
@@ -203,18 +205,18 @@ Item {
                                 anchors.fill: parent
                                 radius: 8 * tray.s
                                 color: rowArea.containsMouse && entry.modelData.enabled
-                                    ? Theme.accent16 : "transparent"
+                                    ? Theme.frameBg : "transparent"
 
                                 Rectangle {
                                     anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.leftMargin: 6 * tray.s
-                                    width: 3 * tray.s
+                                    width: 2 * tray.s
                                     height: parent.height * 0.46
                                     radius: width / 2
                                     color: Theme.vermLit
                                     opacity: rowArea.containsMouse && entry.modelData.enabled ? 1 : 0
-                                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                                    Behavior on opacity { NumberAnimation { duration: Motion.fast } }
                                 }
 
                                 Image {

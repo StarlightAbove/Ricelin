@@ -42,7 +42,7 @@ Item {
     property bool hoverLatch: false
     readonly property bool expanded: surfaceOpen || held || hoverLatch
     property string surfaceFlamePhase: "fly"
-    readonly property bool flameSurface: mediaOpen || launcherOpen || calendarOpen || powerOpen
+    readonly property bool flameSurface: mediaOpen || launcherOpen || calendarOpen || powerOpen || mixerOpen
 
     readonly property real restW: 160 * s
     readonly property real restH: 38 * s
@@ -119,9 +119,9 @@ Item {
         : mode === "mixer" ? mixerH
         : mode === "hover" ? hoverH : restH
 
-    Behavior on width { NumberAnimation { duration: 320; easing.type: Easing.OutQuint } }
-    Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutQuint } }
-    Behavior on morphRadius { NumberAnimation { duration: 320; easing.type: Easing.OutQuint } }
+    Behavior on width { NumberAnimation { duration: Motion.morph; easing.type: Motion.easeMorph } }
+    Behavior on height { NumberAnimation { duration: Motion.morph; easing.type: Motion.easeMorph } }
+    Behavior on morphRadius { NumberAnimation { duration: Motion.morph; easing.type: Motion.easeMorph } }
 
     Rectangle {
         id: body
@@ -174,7 +174,9 @@ Item {
             : (pill.powerOpen
             ? Qt.point(power.x + power.heatX, power.y + power.heatY)
             : Qt.point(media.x + media.seamHeadX, media.y + media.seamHeadY)))
-        flyTarget: pill.calendarOpen
+        flyTarget: pill.mixerOpen
+            ? Qt.point(mixer.x + mixer.width / 2, mixer.y + mixer.height / 2)
+            : (pill.calendarOpen
             ? (calendar.todayVisible
                 ? Qt.point(calendar.x + calendar.todayX, calendar.y + calendar.todayY)
                 : Qt.point(pill.width / 2, pill.height / 2))
@@ -182,7 +184,7 @@ Item {
             ? Qt.point(launcher.x + launcher.caretX, launcher.y + launcher.caretY)
             : (pill.powerOpen
             ? Qt.point(power.x + power.heatX, power.y + power.heatY)
-            : Qt.point(media.x + media.seamHeadX, media.y + media.seamHeadY)))
+            : Qt.point(media.x + media.seamHeadX, media.y + media.seamHeadY))))
         mode: pill.flameSurface ? pill.surfaceFlamePhase
             : (pill.surfaceOpen ? "off"
             : (pill.expanded && musicActive ? "held" : "orbit"))
@@ -192,6 +194,7 @@ Item {
     onLauncherOpenChanged: if (launcherOpen) surfaceFlamePhase = "fly"
     onCalendarOpenChanged: if (calendarOpen) surfaceFlamePhase = "fly"
     onPowerOpenChanged: if (powerOpen) surfaceFlamePhase = "fly"
+    onMixerOpenChanged: if (mixerOpen) surfaceFlamePhase = "fly"
 
     Connections {
         target: flame
@@ -204,6 +207,12 @@ Item {
                 pill.surfaceFlamePhase = "lap";
             else if (pill.powerOpen)
                 pill.surfaceFlamePhase = "dock";
+            else if (pill.mixerOpen) {
+                flame.sparkTargets = mixer.tickPoints().map(function (p) {
+                    return Qt.point(mixer.x + p.x, mixer.y + p.y);
+                });
+                pill.surfaceFlamePhase = "spark";
+            }
         }
     }
 
@@ -507,7 +516,7 @@ Item {
         enabled: pill.launcherOpen
         opacity: pill.launcherOpen ? 1 : 0
         Behavior on opacity {
-            NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard }
         }
         onRequestClose: pill.requestClose()
     }
@@ -524,7 +533,7 @@ Item {
         enabled: pill.powerOpen
         opacity: pill.powerOpen ? 1 : 0
         Behavior on opacity {
-            NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard }
         }
         onRequestClose: pill.requestClose()
     }
@@ -538,7 +547,7 @@ Item {
         enabled: pill.mediaOpen
         opacity: pill.mediaOpen ? 1 : 0
         Behavior on opacity {
-            NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard }
         }
         onRequestClose: pill.requestClose()
     }
