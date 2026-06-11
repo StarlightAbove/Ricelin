@@ -245,10 +245,7 @@ Item {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: pill.requestSurface("media")
-            onContainsMouseChanged: {
-                budBead.requestPaint();
-                pill.hovered = hoverHandler.hovered || containsMouse;
-            }
+            onContainsMouseChanged: budBead.requestPaint()
         }
     }
 
@@ -355,14 +352,13 @@ Item {
             : pill.wakePoint)))))))
     }
 
-    HoverHandler {
-        id: hoverHandler
-        onHoveredChanged: pill.hovered = hovered || budArea.containsMouse
-    }
-
     /**
      * Extra input width past the pill's right edge while the media bud
      * protrudes there, so the window mask can cover the bud's outer half.
+     * pill.hovered itself is fed by a window-level HoverHandler in shell.qml:
+     * pointer events only exist inside the input mask, so "window hovered"
+     * means "pointer over the pill (or bud)" — immune to the per-item hover
+     * flicker that child MouseAreas and the centred width morph cause.
      */
     readonly property real inputPadRight: bud.shown ? bud.budR + 2 * s : 0
 
@@ -377,8 +373,14 @@ Item {
 
     Timer {
         id: graceTimer
-        interval: 250
-        onTriggered: pill.hoverLatch = false
+        interval: 300
+        onTriggered: {
+            if (pill.morphCloseness < 0.95) {
+                graceTimer.restart();
+                return;
+            }
+            pill.hoverLatch = false;
+        }
     }
 
     TapHandler {

@@ -164,10 +164,11 @@ ShellRoot {
             mask: modal ? fullRegion : pillRegion
             Region {
                 id: pillRegion
-                x: pill.x
+                readonly property real baseW: Math.max(pill.width, pill.targetW)
+                x: pill.x + (pill.width - baseW) / 2
                 y: pill.y
-                width: pill.width + pill.inputPadRight
-                height: pill.height
+                width: baseW + pill.inputPadRight
+                height: Math.max(pill.height, pill.targetH)
             }
             Region {
                 id: fullRegion
@@ -192,6 +193,10 @@ ShellRoot {
                 id: focusScope
                 anchors.fill: parent
                 focus: overlay.surfaceOpen
+
+                HoverHandler {
+                    onHoveredChanged: pill.hovered = hovered
+                }
                 Keys.onEscapePressed: if (!pill.linkBack()) root.close()
                 Keys.onUpPressed: (e) => { e.accepted = pill.mixerStep(1); }
                 Keys.onDownPressed: (e) => { e.accepted = pill.mixerStep(-1); }
