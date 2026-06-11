@@ -102,6 +102,10 @@ Item {
                 MouseArea {
                     id: area
                     anchors.fill: parent
+                    anchors.leftMargin: -workspaces.gap / 2
+                    anchors.rightMargin: -workspaces.gap / 2
+                    anchors.topMargin: -8 * workspaces.s
+                    anchors.bottomMargin: -8 * workspaces.s
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: Hyprland.dispatch('hl.dsp.focus({workspace="' + slot.wsName + '"})')
