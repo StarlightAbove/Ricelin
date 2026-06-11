@@ -162,7 +162,18 @@ ShellRoot {
             anchors { top: true; left: true; right: true; bottom: true }
 
             mask: modal ? fullRegion : pillRegion
-            Region { id: pillRegion; item: pill }
+            Region {
+                id: pillRegion
+                item: pill
+                regions: [
+                    Region {
+                        x: pill.budRect.x
+                        y: pill.budRect.y
+                        width: pill.budRect.width
+                        height: pill.budRect.height
+                    }
+                ]
+            }
             Region {
                 id: fullRegion
                 width: overlay.width

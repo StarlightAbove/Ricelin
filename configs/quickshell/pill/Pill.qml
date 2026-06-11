@@ -169,8 +169,15 @@ Item {
     property bool hoverSoulGate: false
     readonly property bool hoverArrived: mode === "hover" && morphCloseness > 0.55
     onHoverArrivedChanged: if (hoverArrived) hoverSoulGate = true
-    onModeChanged: if (mode !== "hover") hoverSoulGate = false
+    onModeChanged: if (mode !== "hover") {
+        hoverSoulGate = false;
+        soulTarget = "";
+        soulWsIndex = -1;
+    }
     onHoverSoulGateChanged: if (hoverSoulGate) kanjiFlashAnim.restart()
+
+    property string soulTarget: ""
+    property int soulWsIndex: -1
 
     property real kanjiFlash: 0
 
@@ -234,12 +241,14 @@ Item {
         MouseArea {
             id: budArea
             anchors.fill: parent
-            anchors.rightMargin: bud.budR
             enabled: bud.shown
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: pill.requestSurface("media")
-            onContainsMouseChanged: budBead.requestPaint()
+            onContainsMouseChanged: {
+                budBead.requestPaint();
+                pill.hovered = hoverHandler.hovered || containsMouse;
+            }
         }
     }
 
@@ -285,23 +294,28 @@ Item {
     }
 
     /**
-     * Focus-cursor target while hovered: the hovered status icon or workspace
-     * dot wins, otherwise the active workspace dot is home. containsMouse and
-     * the Workspaces points are live dependencies; pill geometry is voided so
-     * the anchor follows the hover morph.
+     * Focus-cursor target while hovered. soulTarget is a sticky key written by
+     * the hover sources — the bead parks on the last focused dot or icon and
+     * glides to the next one instead of falling back to the active workspace
+     * every time the pointer crosses a gap. Pill geometry is voided so the
+     * anchor follows the hover morph; the point itself stays live.
      */
     readonly property point soulPoint: {
         void pill.width;
         void pill.height;
         const drop = 12 * pill.s;
-        if (inboxArea.containsMouse)
+        if (soulTarget === "inbox")
             return inboxIcon.mapToItem(pill, inboxIcon.width / 2, inboxIcon.height + drop * 0.55);
-        if (mixerArea.containsMouse)
+        if (soulTarget === "mixer")
             return mixerIcon.mapToItem(pill, mixerIcon.width / 2, mixerIcon.height + drop * 0.55);
-        if (powerArea.containsMouse)
+        if (soulTarget === "power")
             return powerIcon.mapToItem(pill, powerIcon.width / 2, powerIcon.height + drop * 0.55);
-        if (ws.hoverIndex >= 0)
-            return ws.mapToItem(pill, ws.hoverDotPoint.x, ws.hoverDotPoint.y + drop);
+        if (soulTarget === "ws" && soulWsIndex >= 0) {
+            void ws.activeName;
+            void ws.width;
+            const p = ws.mapToItem(pill, ws.slotCenterX(soulWsIndex), ws.height / 2);
+            return Qt.point(p.x, p.y + drop);
+        }
         return ws.mapToItem(pill, ws.activeDotPoint.x, ws.activeDotPoint.y + drop);
     }
 
@@ -343,8 +357,17 @@ Item {
 
     HoverHandler {
         id: hoverHandler
-        onHoveredChanged: pill.hovered = hovered
+        onHoveredChanged: pill.hovered = hovered || budArea.containsMouse
     }
+
+    /**
+     * The media bud protrudes past the pill's right edge, outside the window
+     * input region derived from the pill item — this rect extends the mask so
+     * the outer half of the bud stays clickable. Window coordinates.
+     */
+    readonly property rect budRect: bud.shown
+        ? Qt.rect(pill.x + bud.x, pill.y + bud.y, bud.width, bud.height)
+        : Qt.rect(0, 0, 0, 0)
 
     onHoveredChanged: {
         if (hovered) {
@@ -437,6 +460,10 @@ Item {
                 s: pill.s
                 gap: 8 * pill.s
                 enabled: hover.live
+                onHoverIndexChanged: if (hoverIndex >= 0) {
+                    pill.soulTarget = "ws";
+                    pill.soulWsIndex = hoverIndex;
+                }
             }
 
             Rectangle {
@@ -597,6 +624,7 @@ Item {
                         enabled: hover.live
                         cursorShape: Qt.PointingHandCursor
                         onClicked: pill.requestSurface("link")
+                        onContainsMouseChanged: if (containsMouse) pill.soulTarget = "inbox"
                     }
                 }
 
@@ -621,6 +649,7 @@ Item {
                         enabled: hover.live
                         cursorShape: Qt.PointingHandCursor
                         onClicked: pill.requestSurface("mixer")
+                        onContainsMouseChanged: if (containsMouse) pill.soulTarget = "mixer"
                     }
                 }
 
@@ -645,6 +674,7 @@ Item {
                         enabled: hover.live
                         cursorShape: Qt.PointingHandCursor
                         onClicked: pill.requestSurface("power")
+                        onContainsMouseChanged: if (containsMouse) pill.soulTarget = "power"
                     }
                 }
             }
