@@ -133,39 +133,6 @@ Item {
         }
     }
 
-    /**
-     * Minimal warm toggle: matte tile at rest, terracotta fill when on, cream
-     * knob sliding with the fast motion token.
-     */
-    component LinkToggle: Rectangle {
-        id: toggle
-        property bool on: false
-        signal toggled()
-
-        width: 28 * root.s
-        height: 16 * root.s
-        radius: 999
-        color: on ? Theme.verm : Theme.tileBg
-        border.width: on ? 0 : 1
-        border.color: Theme.border
-
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 10 * root.s
-            height: 10 * root.s
-            radius: width / 2
-            color: Theme.cream
-            x: toggle.on ? toggle.width - width - 3 * root.s : 3 * root.s
-            Behavior on x { NumberAnimation { duration: Motion.fast } }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: toggle.toggled()
-        }
-    }
-
     Item {
         id: header
         anchors.top: parent.top
@@ -243,6 +210,7 @@ Item {
             }
 
             LinkToggle {
+                s: root.s
                 anchors.verticalCenter: parent.verticalCenter
                 on: root.adapter ? root.adapter.enabled === true : false
                 onToggled: if (root.adapter) root.adapter.enabled = !root.adapter.enabled
