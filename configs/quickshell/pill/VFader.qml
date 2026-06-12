@@ -14,6 +14,7 @@ Item {
     property string icon: ""
     property real value: 0.5
     property string valueLabel: ""
+    property string subLabel: ""
     property bool focused: false
 
     signal moved(real v)
@@ -37,7 +38,7 @@ Item {
     }
 
     implicitWidth: 54 * s
-    implicitHeight: trackH + 44 * s
+    implicitHeight: trackH + (subLabel.length ? 52 : 44) * s
 
     /**
      * Nudge the value by a signed percentage (e.g. +1 / -1), clamped to 0..100%,
@@ -136,5 +137,18 @@ Item {
             color: root.lit ? Theme.cream : Theme.iconDim
             stroke: 1.7
         }
+    }
+
+    Text {
+        visible: root.subLabel.length > 0
+        anchors.top: iconBox.bottom
+        anchors.topMargin: 1 * root.s
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: root.subLabel
+        color: root.lit ? Theme.subtle : Theme.faint
+        font.family: Theme.font
+        font.pixelSize: 7 * root.s
+        font.weight: Font.DemiBold
+        font.letterSpacing: 0.6 * root.s
     }
 }

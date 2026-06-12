@@ -52,8 +52,8 @@ Item {
     readonly property real hoverPad: 20 * s
     readonly property real hoverW: hoverRow.implicitWidth + 2 * hoverPad
     readonly property real hoverH: 58 * s
-    readonly property real mixerW: 372 * s
-    readonly property real mixerH: 206 * s
+    readonly property real mixerW: 93 * Math.max(4, mixer.faderCount) * s
+    readonly property real mixerH: 214 * s
     readonly property real calendarW: 318 * s
     readonly property real calendarH: calendar.implicitHeight + 32 * s
     readonly property real launcherW: 360 * s

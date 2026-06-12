@@ -16,7 +16,6 @@ Item {
     property real s: 1
     property bool active: false
 
-    property int brightness: 75
     property int vibrance: 40
 
     readonly property string stateFile: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/ricelin/nvibrant-value"
@@ -24,8 +23,26 @@ Item {
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property var source: Pipewire.defaultAudioSource
 
+    /**
+     * DDC-capable monitors from `ddcutil detect`, one brightness fader each:
+     * [{ bus, label }] with label taken from the DRM connector. Detected once
+     * at startup instead of hardcoding I2C bus numbers.
+     */
+    property var ddcMonitors: []
+
     property int focusIndex: -1
-    readonly property var faders: [brFader, vibFader, volFader, micFader]
+    readonly property int faderCount: faders.length
+    readonly property var faders: {
+        void brRep.count;
+        var out = [];
+        for (var i = 0; i < brRep.count; i++) {
+            var f = brRep.itemAt(i);
+            if (f)
+                out.push(f);
+        }
+        out.push(vibFader, volFader, micFader);
+        return out;
+    }
     readonly property bool surfaceHovered: hoverTracker.hovered
 
     /**
@@ -40,6 +57,8 @@ Item {
         void root.focusIndex;
         const i = Math.max(0, Math.min(faders.length - 1, root.focusIndex));
         const f = faders[i];
+        if (!f)
+            return Qt.point(0, 0);
         return f.mapToItem(root, f.tickCenter.x, f.tickCenter.y);
     }
 
@@ -50,6 +69,7 @@ Item {
      * focus directly.
      */
     readonly property int hoverIndex: surfaceHovered && width > 0
+        && hoverTracker.point.position.y >= faderRow.y
         ? Math.max(0, Math.min(faders.length - 1, Math.floor(hoverTracker.point.position.x / (width / faders.length))))
         : -1
     onHoverIndexChanged: if (hoverIndex >= 0) focusIndex = hoverIndex
@@ -80,37 +100,25 @@ Item {
                                     : (focusIndex + dir + faders.length) % faders.length;
     }
 
-    function applyBrightness(pct) {
-        var p = Math.max(5, Math.min(100, Math.round(pct)));
-        Quickshell.execDetached(["bash", "-c", "timeout 3 ddcutil setvcp 10 " + p + " --bus 3 --noverify & timeout 3 ddcutil setvcp 10 " + p + " --bus 4 --noverify & wait"]);
-    }
-
     function applyVibrance(pct) {
         var raw = Math.round(Math.max(0, Math.min(100, pct)) * 1023 / 100);
         Quickshell.execDetached(["nvibrant", String(raw), "0", String(raw)]);
     }
 
     function saveVibrance(pct) {
-        Quickshell.execDetached(["bash", "-c", "mkdir -p \"$(dirname '" + root.stateFile + "')\" && echo " + Math.round(pct) + " > '" + root.stateFile + "'"]);
+        Quickshell.execDetached(["sh", "-c",
+            'mkdir -p "$(dirname "$1")" && printf "%s\n" "$2" > "$1"',
+            "_", root.stateFile, String(Math.round(pct))]);
     }
 
     Component.onCompleted: {
         var v = parseInt((vibState.text() || "40").trim());
         root.vibrance = isNaN(v) ? 40 : v;
-        brRead.running = true;
+        ddcDetect.running = true;
     }
 
-    property real pendingBrightness: -1
     property real pendingVibrance: -1
 
-    Timer {
-        id: brDebounce
-        interval: 160
-        onTriggered: if (root.pendingBrightness >= 0) {
-            root.applyBrightness(root.pendingBrightness);
-            root.pendingBrightness = -1;
-        }
-    }
     Timer {
         id: vibDebounce
         interval: 160
@@ -126,14 +134,20 @@ Item {
     }
 
     Process {
-        id: brRead
-        command: ["timeout", "3", "ddcutil", "getvcp", "10", "--bus", "3", "--brief"]
+        id: ddcDetect
+        command: ["ddcutil", "detect", "--brief"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
-                var m = this.text.match(/C\s+(\d+)\s+/);
-                if (m)
-                    root.brightness = parseInt(m[1]);
+                var mons = [];
+                var blocks = this.text.split(/\bDisplay \d+/);
+                for (var i = 0; i < blocks.length; i++) {
+                    var bus = /I2C bus:\s+\/dev\/i2c-(\d+)/.exec(blocks[i]);
+                    var conn = /DRM connector:\s+card\d+-(\S+)/.exec(blocks[i]);
+                    if (bus)
+                        mons.push({ bus: bus[1], label: conn ? conn[1] : "BUS " + bus[1] });
+                }
+                root.ddcMonitors = mons;
             }
         }
     }
@@ -232,30 +246,73 @@ Item {
     }
 
     Row {
+        id: faderRow
         anchors.top: divider.bottom
         anchors.topMargin: 10 * root.s
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 130 * root.s
+        height: 138 * root.s
         spacing: 0
 
-        VFader {
-            id: brFader
-            width: parent.width / 4
-            s: root.s
-            icon: "sun"
-            focused: root.focusIndex === 0
-            value: root.brightness / 100
-            valueLabel: root.brightness + "%"
-            onMoved: (v) => root.brightness = Math.round(v * 100)
-            onCommitted: (v) => { root.pendingBrightness = v * 100; brDebounce.restart(); }
+        readonly property real colW: width / Math.max(1, root.faderCount)
+
+        Repeater {
+            id: brRep
+            model: root.ddcMonitors
+
+            VFader {
+                id: brFader
+
+                required property var modelData
+                required property int index
+
+                property int pct: 75
+                property real pendingPct: -1
+
+                width: faderRow.colW
+                s: root.s
+                icon: "sun"
+                subLabel: modelData.label
+                focused: root.focusIndex === index
+                value: pct / 100
+                valueLabel: pct + "%"
+                onMoved: (v) => pct = Math.max(5, Math.min(100, Math.round(v * 100)))
+                onCommitted: (v) => {
+                    pendingPct = Math.max(5, Math.min(100, Math.round(v * 100)));
+                    brCommit.restart();
+                }
+
+                Timer {
+                    id: brCommit
+                    interval: 160
+                    onTriggered: if (brFader.pendingPct >= 0) {
+                        Quickshell.execDetached(["timeout", "3", "ddcutil", "setvcp", "10",
+                            String(brFader.pendingPct), "--bus", brFader.modelData.bus, "--noverify"]);
+                        brFader.pendingPct = -1;
+                    }
+                }
+
+                Process {
+                    id: brRead
+                    command: ["timeout", "3", "ddcutil", "getvcp", "10", "--bus", brFader.modelData.bus, "--brief"]
+                    running: true
+                    stdout: StdioCollector {
+                        onStreamFinished: {
+                            var m = this.text.match(/C\s+(\d+)\s+/);
+                            if (m)
+                                brFader.pct = parseInt(m[1], 10);
+                        }
+                    }
+                }
+            }
         }
+
         VFader {
             id: vibFader
-            width: parent.width / 4
+            width: faderRow.colW
             s: root.s
             icon: "monitor"
-            focused: root.focusIndex === 1
+            focused: root.focusIndex === root.faderCount - 3
             value: root.vibrance / 100
             valueLabel: root.vibrance + "%"
             onMoved: (v) => root.vibrance = Math.round(v * 100)
@@ -263,20 +320,20 @@ Item {
         }
         VFader {
             id: volFader
-            width: parent.width / 4
+            width: faderRow.colW
             s: root.s
             icon: "speaker"
-            focused: root.focusIndex === 2
+            focused: root.focusIndex === root.faderCount - 2
             value: root.sink && root.sink.audio ? root.sink.audio.volume : 0
             valueLabel: Math.round((root.sink && root.sink.audio ? root.sink.audio.volume : 0) * 100) + "%"
             onMoved: (v) => { if (root.sink && root.sink.audio) root.sink.audio.volume = v; }
         }
         VFader {
             id: micFader
-            width: parent.width / 4
+            width: faderRow.colW
             s: root.s
             icon: (root.source && root.source.audio && root.source.audio.muted) ? "mic-off" : "mic"
-            focused: root.focusIndex === 3
+            focused: root.focusIndex === root.faderCount - 1
             value: root.source && root.source.audio ? root.source.audio.volume : 0
             valueLabel: (root.source && root.source.audio && root.source.audio.muted)
                 ? "off"
@@ -302,7 +359,7 @@ Item {
         onWheel: (event) => {
             acc += event.angleDelta.y / 120;
             const notches = Math.trunc(acc);
-            if (notches !== 0 && root.stepFocused(notches))
+            if (notches !== 0 && root.stepFocused(notches * 5))
                 acc -= notches;
             event.accepted = true;
         }
