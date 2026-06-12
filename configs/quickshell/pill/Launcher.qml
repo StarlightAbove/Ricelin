@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "Singletons"
@@ -35,10 +34,10 @@ Item {
     readonly property point caretPoint: {
         void root.width;
         void root.height;
-        void field.width;
-        return field.mapToItem(root,
-            field.cursorRectangle.x + field.cursorRectangle.width / 2,
-            field.cursorRectangle.y + field.cursorRectangle.height / 2);
+        void search.input.width;
+        return search.input.mapToItem(root,
+            search.input.cursorRectangle.x + search.input.cursorRectangle.width / 2,
+            search.input.cursorRectangle.y + search.input.cursorRectangle.height / 2);
     }
     readonly property real caretX: caretPoint.x
     readonly property real caretY: caretPoint.y
@@ -57,7 +56,7 @@ Item {
     readonly property int totalCount: allEntries.length
     readonly property var results: Fuzzy.rank(allEntries, query, usage)
 
-    function focusField() { field.forceActiveFocus(); }
+    function focusField() { search.input.forceActiveFocus(); }
 
     function mapCategory(raw) {
         const order = [
@@ -98,7 +97,7 @@ Item {
     onActiveChanged: {
         if (active) {
             query = "";
-            field.text = "";
+            search.text = "";
             selectedIndex = 0;
             Qt.callLater(root.focusField);
         }
@@ -122,68 +121,22 @@ Item {
         }
     }
 
-    Item {
+    SearchField {
         id: search
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 30 * root.s
-
-        Text {
-            id: glyph
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.left: parent.left
-            text: "探"
-            color: Theme.dim
-            font.family: Theme.fontJp
-            font.weight: Font.Medium
-            font.pixelSize: 16 * root.s
+        s: root.s
+        kanji: "探"
+        placeholder: "Search apps"
+        counterText: root.results.length + " / " + root.totalCount
+        onTextChanged: {
+            root.query = text;
+            root.selectedIndex = 0;
         }
-
-        TextField {
-            id: field
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.left: glyph.right
-            anchors.leftMargin: 10 * root.s
-            anchors.right: counter.left
-            anchors.rightMargin: 10 * root.s
-            background: null
-            padding: 0
-            color: Theme.cream
-            font.family: Theme.font
-            font.pixelSize: 15 * root.s
-            placeholderText: "Search apps"
-            placeholderTextColor: Theme.faint
-            selectByMouse: true
-            selectionColor: Theme.verm
-            onTextChanged: {
-                root.query = text;
-                root.selectedIndex = 0;
-            }
-            cursorDelegate: Item {}
-            Keys.onUpPressed: root.move(-1)
-            Keys.onDownPressed: root.move(1)
-            Keys.onPressed: (e) => {
-                if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
-                    root.activate();
-                    e.accepted = true;
-                } else if (e.key === Qt.Key_Escape) {
-                    root.requestClose();
-                    e.accepted = true;
-                }
-            }
-        }
-
-        Text {
-            id: counter
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.right: parent.right
-            text: root.results.length + " / " + root.totalCount
-            color: Theme.faint
-            font.family: Theme.font
-            font.pixelSize: 10.5 * root.s
-            font.features: { "tnum": 1 }
-        }
+        onMoved: (d) => root.move(d)
+        onAccepted: root.activate()
+        onDismissed: root.requestClose()
     }
 
     Rectangle {
