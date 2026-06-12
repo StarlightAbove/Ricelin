@@ -108,6 +108,7 @@ ShellRoot {
         function power(mon: string): void { root.toggleSurface(mon, "power"); }
         function link(mon: string): void { root.toggleSurface(mon, "link"); }
         function clipboard(mon: string): void { root.toggleSurface(mon, "clipboard"); }
+        function wallpaper(mon: string): void { root.toggleSurface(mon, "wallpaper"); }
         function media(mon: string): void {
             if (Mpris.players.values.length > 0)
                 root.toggleSurface(mon, "media");
@@ -200,8 +201,16 @@ ShellRoot {
                 Keys.onEscapePressed: if (!pill.linkBack()) root.close()
                 Keys.onUpPressed: (e) => { e.accepted = pill.mixerStep(1); }
                 Keys.onDownPressed: (e) => { e.accepted = pill.mixerStep(-1); }
-                Keys.onLeftPressed: (e) => { if (pill.mixerOpen) { pill.mixerFocusMove(-1); e.accepted = true; } }
-                Keys.onRightPressed: (e) => { if (pill.mixerOpen) { pill.mixerFocusMove(1); e.accepted = true; } }
+                Keys.onLeftPressed: (e) => {
+                    if (pill.mixerOpen) { pill.mixerFocusMove(-1); e.accepted = true; }
+                    else if (pill.wallpaperOpen) { pill.wallpaperMove(-1); e.accepted = true; }
+                }
+                Keys.onRightPressed: (e) => {
+                    if (pill.mixerOpen) { pill.mixerFocusMove(1); e.accepted = true; }
+                    else if (pill.wallpaperOpen) { pill.wallpaperMove(1); e.accepted = true; }
+                }
+                Keys.onReturnPressed: (e) => { if (pill.wallpaperOpen) { pill.wallpaperActivate(); e.accepted = true; } }
+                Keys.onEnterPressed: (e) => { if (pill.wallpaperOpen) { pill.wallpaperActivate(); e.accepted = true; } }
 
                 Pill {
                     id: pill

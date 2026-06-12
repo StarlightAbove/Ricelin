@@ -4,3 +4,4 @@ singleton Flags Flags.qml
 singleton Cava Cava.qml
 singleton Notifs Notifs.qml
 singleton Cliphist Cliphist.qml
+singleton Walls Walls.qml

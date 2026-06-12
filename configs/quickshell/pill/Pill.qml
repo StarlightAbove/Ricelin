@@ -36,6 +36,7 @@ Item {
     readonly property bool calendarOpen: surface === "calendar"
     readonly property bool launcherOpen: surface === "launcher"
     readonly property bool clipboardOpen: surface === "clipboard"
+    readonly property bool wallpaperOpen: surface === "wallpaper"
     readonly property bool powerOpen: surface === "power"
     readonly property bool mediaOpen: surface === "media"
     readonly property bool linkOpen: surface === "link"
@@ -59,6 +60,8 @@ Item {
     readonly property real launcherH: 332 * s
     readonly property real clipboardW: 360 * s
     readonly property real clipboardH: 332 * s
+    readonly property real wallpaperW: 720 * s
+    readonly property real wallpaperH: 146 * s
     readonly property real powerW: 330 * s
     readonly property real powerH: 150 * s
     readonly property real mediaW: 336 * s
@@ -70,13 +73,14 @@ Item {
     readonly property string mode: calendarOpen ? "calendar"
         : (launcherOpen ? "launcher"
         : (clipboardOpen ? "clipboard"
+        : (wallpaperOpen ? "wallpaper"
         : (powerOpen ? "power"
         : (mediaOpen ? "media"
         : (mixerOpen ? "mixer"
         : (linkOpen ? "link"
         : (osdActive && !held ? "osd"
         : (toastActive && !held ? "toast"
-        : (expanded ? "hover" : "rest")))))))))
+        : (expanded ? "hover" : "rest"))))))))))
 
     signal requestSurface(string name)
     signal requestClose()
@@ -107,6 +111,25 @@ Item {
         return pill.linkOpen ? link.back() : false;
     }
 
+    /**
+     * Slide the open wallpaper strip's focus by `dir` thumbs; +1 is right (older)
+     * and -1 is left (newer). No-op unless the wallpaper surface is open.
+     */
+    function wallpaperMove(dir) {
+        if (pill.wallpaperOpen)
+            wall.move(dir);
+    }
+
+    /**
+     * Apply the wallpaper strip's focused thumb through wallpaper.sh. The
+     * surface stays open so the pick can be iterated. No-op unless the
+     * wallpaper surface is open.
+     */
+    function wallpaperActivate() {
+        if (pill.wallpaperOpen)
+            wall.activate();
+    }
+
     onSurfaceOpenChanged: if (surfaceOpen) pinned = false
 
     QtObject {
@@ -122,11 +145,12 @@ Item {
         precision: SystemClock.Minutes
     }
 
-    property real morphRadius: (mixerOpen || calendarOpen || launcherOpen || clipboardOpen || powerOpen || mediaOpen || linkOpen || mode === "toast" || mode === "osd") ? openCorner : restCorner
+    property real morphRadius: (mixerOpen || calendarOpen || launcherOpen || clipboardOpen || wallpaperOpen || powerOpen || mediaOpen || linkOpen || mode === "toast" || mode === "osd") ? openCorner : restCorner
 
     readonly property real targetW: mode === "calendar" ? calendarW
         : mode === "launcher" ? launcherW
         : mode === "clipboard" ? clipboardW
+        : mode === "wallpaper" ? wallpaperW
         : mode === "power" ? powerW
         : mode === "media" ? mediaW
         : mode === "mixer" ? mixerW
@@ -138,6 +162,7 @@ Item {
     readonly property real targetH: mode === "calendar" ? calendarH
         : mode === "launcher" ? launcherH
         : mode === "clipboard" ? clipboardH
+        : mode === "wallpaper" ? wallpaperH
         : mode === "power" ? powerH
         : mode === "media" ? mediaH
         : mode === "mixer" ? mixerH
@@ -743,6 +768,20 @@ Item {
         active: pill.clipboardOpen
         enabled: pill.clipboardOpen
         opacity: pill.clipboardOpen ? Math.pow(pill.morphCloseness, 1.3) : 0
+        visible: opacity > 0.01
+        Behavior on opacity {
+            NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard }
+        }
+        onRequestClose: pill.requestClose()
+    }
+
+    Wallpaper {
+        id: wall
+        anchors.fill: parent
+        s: pill.s
+        active: pill.wallpaperOpen
+        enabled: pill.wallpaperOpen
+        opacity: pill.wallpaperOpen ? Math.pow(pill.morphCloseness, 1.3) : 0
         visible: opacity > 0.01
         Behavior on opacity {
             NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard }
