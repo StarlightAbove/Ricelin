@@ -85,6 +85,37 @@ Item {
         onTriggered: if (root.player) root.player.positionChanged();
     }
 
+    component SkipButton: Item {
+        id: skip
+
+        property string glyph: ""
+        property bool can: false
+        signal activated()
+
+        width: 17 * root.s
+        height: 17 * root.s
+        anchors.verticalCenter: parent.verticalCenter
+        opacity: skipArea.enabled ? (skipArea.containsMouse ? 1 : 0.75) : 0.4
+        Behavior on opacity { NumberAnimation { duration: 120 } }
+
+        GlyphIcon {
+            anchors.fill: parent
+            name: skip.glyph
+            stroke: 1.8
+            color: Theme.cream
+        }
+
+        MouseArea {
+            id: skipArea
+            anchors.fill: parent
+            anchors.margins: -7 * root.s
+            hoverEnabled: true
+            enabled: skip.can
+            cursorShape: Qt.PointingHandCursor
+            onClicked: skip.activated()
+        }
+    }
+
     ClippingRectangle {
         id: coverBox
         anchors.left: parent.left
@@ -171,27 +202,10 @@ Item {
         anchors.verticalCenter: coverBox.verticalCenter
         spacing: 12 * root.s
 
-        Item {
-            width: 17 * root.s
-            height: 17 * root.s
-            anchors.verticalCenter: parent.verticalCenter
-            opacity: prevArea.enabled ? (prevArea.containsMouse ? 1 : 0.75) : 0.4
-            Behavior on opacity { NumberAnimation { duration: 120 } }
-            GlyphIcon {
-                anchors.fill: parent
-                name: "prev-s"
-                stroke: 1.8
-                color: Theme.cream
-            }
-            MouseArea {
-                id: prevArea
-                anchors.fill: parent
-                anchors.margins: -7 * root.s
-                hoverEnabled: true
-                enabled: root.hasPlayer && root.player.canGoPrevious
-                cursorShape: Qt.PointingHandCursor
-                onClicked: if (root.player) root.player.previous();
-            }
+        SkipButton {
+            glyph: "prev-s"
+            can: root.hasPlayer && root.player.canGoPrevious
+            onActivated: if (root.player) root.player.previous()
         }
 
         Item {
@@ -228,27 +242,10 @@ Item {
             }
         }
 
-        Item {
-            width: 17 * root.s
-            height: 17 * root.s
-            anchors.verticalCenter: parent.verticalCenter
-            opacity: nextArea.enabled ? (nextArea.containsMouse ? 1 : 0.75) : 0.4
-            Behavior on opacity { NumberAnimation { duration: 120 } }
-            GlyphIcon {
-                anchors.fill: parent
-                name: "next-s"
-                stroke: 1.8
-                color: Theme.cream
-            }
-            MouseArea {
-                id: nextArea
-                anchors.fill: parent
-                anchors.margins: -7 * root.s
-                hoverEnabled: true
-                enabled: root.hasPlayer && root.player.canGoNext
-                cursorShape: Qt.PointingHandCursor
-                onClicked: if (root.player) root.player.next();
-            }
+        SkipButton {
+            glyph: "next-s"
+            can: root.hasPlayer && root.player.canGoNext
+            onActivated: if (root.player) root.player.next()
         }
     }
 
