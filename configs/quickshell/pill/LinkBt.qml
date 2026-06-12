@@ -409,14 +409,10 @@ Item {
             }
         }
 
-        MouseArea {
+        WheelScroller {
             anchors.fill: parent
-            acceptedButtons: Qt.NoButton
-            onWheel: function(event) {
-                var max = Math.max(0, devFlick.contentHeight - devFlick.height);
-                devFlick.contentY = Math.max(0, Math.min(max, devFlick.contentY - event.angleDelta.y / 120 * 36 * root.s));
-                event.accepted = true;
-            }
+            s: root.s
+            flick: devFlick
         }
     }
 }

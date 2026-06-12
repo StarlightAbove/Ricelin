@@ -865,14 +865,10 @@ Item {
                     }
                 }
 
-                MouseArea {
+                WheelScroller {
                     anchors.fill: parent
-                    acceptedButtons: Qt.NoButton
-                    onWheel: function(event) {
-                        var max = Math.max(0, notifFlick.contentHeight - notifFlick.height);
-                        notifFlick.contentY = Math.max(0, Math.min(max, notifFlick.contentY - event.angleDelta.y / 120 * 36 * root.s));
-                        event.accepted = true;
-                    }
+                    s: root.s
+                    flick: notifFlick
                 }
             }
 
