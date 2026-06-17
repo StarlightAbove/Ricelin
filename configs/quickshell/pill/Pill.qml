@@ -8,16 +8,14 @@ import Quickshell.Services.Mpris
 import "Singletons"
 
 /**
- * The washi pill body — a single element that carries every state. Its width and
- * height are driven by `state` (rest, hover/pinned, mixer, calendar) and settled
- * with a critically-damped, no-overshoot easing, so each surface grows out of the
- * pill in place rather than appearing as a separate window. The four surfaces are
- * absolutely stacked and cross-fade, exactly as the approved prototype does.
+ * The pill body. One element carries every state. Width/height driven by `state`
+ * (rest, hover/pinned, mixer, calendar) with a no-overshoot easing so surfaces
+ * grow out of the pill in place. Surfaces are stacked absolutely and cross-fade.
  *
- * Hover is read by a passive HoverHandler and pin by a passive TapHandler, so
- * neither blocks pointer events from the interactive surfaces stacked above them:
- * workspace dots, the clock target, tray icons and the mixer faders all receive
- * their own clicks and drags directly.
+ * Hover comes from a passive HoverHandler, pin from a passive TapHandler, so
+ * neither swallows pointer events from the surfaces stacked above: workspace
+ * dots, the clock target, tray icons and the mixer faders get their own clicks
+ * and drags.
  */
 Item {
     id: pill
@@ -148,10 +146,9 @@ Item {
     property real morphRadius: (mode === "rest" || mode === "hover") ? restCorner : openCorner
 
     /**
-     * Target geometry per mode, one entry per surface. The thunks are invoked
-     * inside the targetSize binding, so every property they read still
-     * registers as a live dependency. Adding a surface means one line here
-     * instead of touching parallel ternary ladders.
+     * Target geometry per mode, one entry per surface. Thunks (not plain sizes)
+     * so the properties they read are evaluated inside the targetSize binding and
+     * register as live deps. Adding a surface is one line here.
      */
     readonly property var surfaceSize: ({
         calendar:  () => Qt.size(calendarW, calendarH),
@@ -178,10 +175,10 @@ Item {
     height: targetH
 
     /**
-     * How settled the pill is into its current target geometry, 0 while the
-     * morph is still far away and 1 when it has arrived. Content opacities are
-     * driven by this instead of independent timers, so a surface materialises
-     * out of the morphing form rather than fading in over a half-grown pill.
+     * How settled the pill is into its target geometry: 0 while the morph is far
+     * away, 1 once it arrives. Content opacities key off this, not their own
+     * timers, so a surface fades in as the pill reaches full size, never over a
+     * half-grown pill.
      */
     readonly property real morphCloseness: {
         const d = Math.max(Math.abs(width - targetW), Math.abs(height - targetH));
@@ -189,10 +186,10 @@ Item {
     }
 
     /**
-     * The soul wakes only after the hover morph has arrived and its icons are
-     * visible — otherwise the bead flies toward targets that do not exist yet.
+     * Gate the soul bead until the hover morph has arrived and its icons exist.
+     * Fire it earlier and the bead aims at anchors that aren't laid out yet.
      * Latched so small width changes inside hover (workspace dot growing, tray
-     * icons appearing) cannot flicker the bead back to sleep.
+     * icons appearing) don't flicker the bead off.
      */
     property bool hoverSoulGate: false
     readonly property bool hoverArrived: mode === "hover" && morphCloseness > 0.55
@@ -309,8 +306,8 @@ Item {
     }
 
     /**
-     * Anchor of the sleeping soul: the 時 kanji centre. Ame wakes here — the
-     * idle outline condenses into the bead at this point before it flies.
+     * Rest anchor for Ame: the 時 kanji centre. The idle outline condenses into
+     * the bead here before it moves.
      */
     readonly property point wakePoint: {
         void pill.width;
@@ -319,11 +316,11 @@ Item {
     }
 
     /**
-     * Focus-cursor target while hovered. soulTarget is a sticky key written by
-     * the hover sources — the bead parks on the last focused dot or icon and
-     * glides to the next one instead of falling back to the active workspace
-     * every time the pointer crosses a gap. Pill geometry is voided so the
-     * anchor follows the hover morph; the point itself stays live.
+     * Bead target while hovered. soulTarget is a sticky key written by the hover
+     * sources: the bead parks on the last focused dot or icon and glides to the
+     * next, so crossing a gap between targets doesn't snap it back to the active
+     * workspace. Pill geometry is voided so the anchor follows the hover morph,
+     * the point stays live.
      */
     readonly property point soulPoint: {
         void pill.width;
@@ -345,10 +342,9 @@ Item {
     }
 
     /**
-     * The open surface that owns Ame's anchor, in original priority order. Each
-     * surface exports its own `ameForm`/`amePoint`; the host only selects and
-     * maps. Null means no surface is open, so Ame falls back to the pill's own
-     * hover/wake anchor.
+     * Which open surface owns Ame's anchor, in priority order. Each surface
+     * exports its own `ameForm`/`amePoint`; the pill just picks one and maps it.
+     * Null = nothing open, so Ame falls back to the pill's own hover/wake anchor.
      */
     readonly property var ameSurface: mediaOpen ? media
         : (launcherOpen ? launcher
@@ -374,12 +370,12 @@ Item {
     }
 
     /**
-     * Extra input width past the pill's right edge while the media bud
-     * protrudes there, so the window mask can cover the bud's outer half.
-     * pill.hovered itself is fed by a window-level HoverHandler in shell.qml:
-     * pointer events only exist inside the input mask, so "window hovered"
-     * means "pointer over the pill (or bud)" — immune to the per-item hover
-     * flicker that child MouseAreas and the centred width morph cause.
+     * Extra input width past the pill's right edge while the media bud sticks
+     * out there, so the window mask covers the bud's outer half. pill.hovered is
+     * fed by a window-level HoverHandler in shell.qml: pointer events only exist
+     * inside the input mask, so "window hovered" means "pointer over the pill (or
+     * bud)". That sidesteps the per-item hover flicker the child MouseAreas and
+     * the centred width morph would otherwise cause.
      */
     readonly property real inputPadRight: bud.shown ? bud.budR + 2 * s : 0
 

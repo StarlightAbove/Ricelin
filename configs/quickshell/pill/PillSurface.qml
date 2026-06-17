@@ -2,14 +2,13 @@ import QtQuick
 import "Singletons"
 
 /**
- * Shared morph-surface contract for the pill's standard surfaces. Each surface
- * fills the pill body inset by its own margins (scaled by `s`), fades in with
- * the morph as it nears full openness, and is only enabled while open. A surface
- * sets `open`, `s` and `morphCloseness` from the host plus its own `mTop`/`mLeft`/
- * `mRight`/`mBottom` insets; `active` mirrors `open` for the legacy
- * `onActiveChanged` hooks. `requestClose()` is the surface's ask to dismiss the
- * pill. The mode-string surfaces (Osd, Toast) use a different lifecycle and do
- * not derive from this base.
+ * Shared morph-surface base for the pill's standard surfaces. Each surface fills
+ * the pill body inset by its own margins (scaled by `s`), fades in with the morph
+ * as it nears full openness, and is only enabled while open. The host sets `open`,
+ * `s` and `morphCloseness`; the surface sets its own `mTop`/`mLeft`/`mRight`/
+ * `mBottom` insets. `active` mirrors `open` for the older `onActiveChanged` hooks.
+ * `requestClose()` asks the pill to dismiss. Osd and Toast use a different
+ * lifecycle and do not derive from this base.
  */
 Item {
     id: surface
@@ -26,11 +25,10 @@ Item {
     signal requestClose()
 
     /**
-     * Ame anchor contract. Each surface declares the flame's form and the dock
-     * point (in surface-local coordinates) for its own open state; the host maps
-     * the point into pill space and feeds the active surface's pair to Ame. Plain
-     * (non-readonly) so a deriving surface can re-bind them; the base default is
-     * the off state at the surface centre.
+     * Ame anchor. Each surface declares the flame's form and dock point (in
+     * surface-local coords) for its open state; the host maps the point into
+     * pill space and feeds the active surface's pair to Ame. Left non-readonly
+     * so a deriving surface can re-bind. Base default is off at the centre.
      */
     property string ameForm: "off"
     property point amePoint: Qt.point(width / 2, height / 2)

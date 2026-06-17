@@ -6,12 +6,12 @@ import Quickshell.Hyprland
 import "Singletons"
 
 /**
- * Workspace dots for one monitor. A fixed per-monitor range always shows every
- * dot — DP-1 gets [1,2,3,4,5], HDMI-A-1 gets [6,7,8,9,10] — no numbers, no
- * icons. The active one is a larger filled vermillion dot; the rest are small
- * and dim, brightening on hover. Clicking a dot focuses that workspace via the
- * native Hyprland-lua dispatcher. The active marker tracks the monitor's live
- * active workspace name from the Hyprland model.
+ * Workspace dots for one monitor. Fixed per-monitor range always shows every
+ * dot (DP-1 gets [1,2,3,4,5], HDMI-A-1 gets [6,7,8,9,10]), no numbers, no
+ * icons. Active one is a larger filled vermillion dot; the rest are small and
+ * dim, brightening on hover. Clicking a dot focuses that workspace via the
+ * Hyprland-lua dispatcher. Active marker tracks the monitor's live active
+ * workspace name from the Hyprland model.
  */
 Item {
     id: workspaces
@@ -41,9 +41,9 @@ Item {
     readonly property int activeIndex: range.indexOf(parseInt(activeName))
 
     /**
-     * Centre x of a dot slot from target layout widths (the active stick is
-     * wider). Uses the animation end values, so a focus marker aimed here lands
-     * where the dot settles rather than chasing the width Behavior.
+     * Centre x of a dot slot from target layout widths (active stick is wider).
+     * Uses the animation end values, so a focus marker aimed here lands where
+     * the dot settles and doesn't chase the width Behavior.
      */
     function slotCenterX(idx) {
         let x = 0;

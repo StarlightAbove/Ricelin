@@ -4,8 +4,8 @@ import Quickshell
 import Quickshell.Io
 
 /**
- * cliphist bridge — keeps a warm in-memory snapshot of the clipboard history so
- * the clipboard surface opens instantly instead of shelling out on demand. A
+ * cliphist bridge: keeps a warm in-memory snapshot of the clipboard history so
+ * the clipboard surface opens instantly without shelling out on demand. A
  * wl-paste watcher fires on every clipboard change; after a short debounce the
  * thumbnail script regenerates missing image previews (and prunes stale ones),
  * then `cliphist list` is re-read into `entries`. Thumbnails are written before

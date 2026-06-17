@@ -4,11 +4,10 @@ import QtQuick
 import "Singletons"
 
 /**
- * Thread primitive for the link surface, echoing the mixer fader's filament
- * language. `kind: "signal"` renders three short vertical threads that light
- * bottom-up with the vermilion gradient and a bright flame cap; `kind:
- * "battery"` renders one thin horizontal thread with a warm fill. `level` is
- * 0..1.
+ * Thread primitive for the link surface, matches the mixer fader's filament
+ * look. kind "signal" renders three short vertical threads that light bottom-up
+ * with the vermilion gradient and a bright flame cap; kind "battery" renders
+ * one thin horizontal thread with a warm fill. level is 0..1.
  */
 Item {
     id: root

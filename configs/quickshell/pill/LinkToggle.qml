@@ -2,9 +2,9 @@ import QtQuick
 import "Singletons"
 
 /**
- * Minimal warm toggle: matte tile at rest, terracotta fill when on, cream
- * knob sliding with the fast motion token. Shared by the link surface and
- * its WLAN/Bluetooth drill-ins.
+ * Toggle switch: tile bg off, terracotta fill on, cream knob slides on the
+ * fast motion token. Shared by the link surface and its WLAN/Bluetooth
+ * drill-ins.
  */
 Rectangle {
     id: toggle

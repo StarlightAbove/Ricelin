@@ -6,17 +6,15 @@ import Quickshell.Widgets
 import "Singletons"
 
 /**
- * Wallpaper surface: a cinematic filmstrip over the wallpaper directory,
- * rendered as one of the morphing pill's surfaces. Thumbs come from the warm
- * Walls singleton snapshot, newest first; the focused thumb stands large and
- * fully lit while neighbours shrink, dim and desaturate as they slide
- * underneath it, so the strip reads as depth rather than a row. Arrow keys and
- * the wheel move focus, clicking a neighbour glides to it, and Enter or a tap
- * on the focused thumb applies it through wallpaper.sh — the strip stays open
- * so picks can be iterated. Holding the focused thumb for the heat duration
- * trashes the file — press-and-hold is the pill's native confirmation,
- * mirroring the clipboard wipe; progress sweeps along the thumb's lower edge
- * and drains on early release.
+ * Wallpaper surface: a filmstrip over the wallpaper directory, rendered as one
+ * of the pill's surfaces. Thumbs come from the Walls singleton snapshot, newest
+ * first. The focused thumb is large and fully lit; neighbours shrink, dim and
+ * desaturate as they slide under it, so the strip reads as depth. Arrow keys
+ * and wheel move focus, clicking a neighbour glides to it, Enter or a tap on
+ * the focused thumb applies it via wallpaper.sh (strip stays open so you can
+ * keep trying picks). Hold the focused thumb for the heat duration to trash the
+ * file (press-and-hold confirm, same as the clipboard wipe); progress sweeps
+ * along the thumb's lower edge and drains on early release.
  */
 PillSurface {
     id: root
@@ -25,9 +23,9 @@ PillSurface {
 
     /**
      * Continuous view position chasing focusIndex. The strip renders from this
-     * single value, so any input rate (40Hz key autorepeat, wheel bursts)
-     * stays visually coherent: the lag is bounded by the chase time constant
-     * instead of accumulating across per-tile retargeting animations.
+     * single value, so any input rate (40Hz key autorepeat, wheel bursts) stays
+     * coherent: lag is bounded by the chase time constant, not piled up across
+     * per-tile retargeting animations.
      */
     property real pos: 0
 
@@ -131,9 +129,9 @@ PillSurface {
             readonly property bool holding: trashHeat.holding
 
             /**
-             * Dissolve a tile to nothing as its outer edge nears the clipped
-             * strip boundary, so the filmstrip ends fade out instead of being
-             * hard-cut by the pill's clip.
+             * Fade a tile out as its outer edge nears the clipped strip
+             * boundary, so the strip ends soften instead of getting hard-cut by
+             * the pill's clip.
              */
             readonly property real edgeFade: {
                 var soft = 70 * root.s;

@@ -9,11 +9,11 @@ import Quickshell.Services.SystemTray
 import "Singletons"
 
 /**
- * Live system tray. Renders the StatusNotifier items as warm-tinted icons:
- * left-click activates (preferring the resolved desktop entry), middle-click
- * secondary-activates, right-click opens the item's native menu in a floating
- * washi card, and the wheel scrolls the item. The menu rides its own overlay
- * window so it can grab keyboard focus for dismissal.
+ * System tray. Draws StatusNotifier items as warm-tinted icons. Left-click
+ * activates (preferring the resolved desktop entry), middle-click does the
+ * secondary action, right-click opens the item's native menu in a floating
+ * washi card, wheel scrolls the item. The menu gets its own overlay window so
+ * it can grab keyboard focus for dismissal.
  */
 Item {
     id: tray

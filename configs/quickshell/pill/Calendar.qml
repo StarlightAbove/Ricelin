@@ -5,13 +5,13 @@ import Quickshell
 import "Singletons"
 
 /**
- * Calendar surface content: a header with the month/year label and prev/next
- * navigation, weekday headers and a day grid sized to exactly the rows the month
- * needs. Today carries a silent warm frame; weekend columns are dimmed and the
- * leading/trailing cells ghost the neighbouring months' day numbers. The view
- * date is reset to the real "today" (via SystemClock) every time the surface
- * opens. `implicitHeight` lets the pill shrink to the live row count, and
- * `todayX/todayY/todayVisible` expose today's cell centre for the flame lap.
+ * Calendar surface content: header with month/year label and prev/next nav,
+ * weekday headers and a day grid sized to exactly the rows the month needs.
+ * Today gets a warm frame; weekend columns are dimmed and the leading/trailing
+ * cells ghost the neighbouring months' day numbers. View date resets to the
+ * real "today" (via SystemClock) every time the surface opens. implicitHeight
+ * lets the pill shrink to the live row count, and todayX/todayY/todayVisible
+ * expose today's cell centre for the flame lap.
  */
 PillSurface {
     id: root

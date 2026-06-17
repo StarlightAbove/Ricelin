@@ -4,8 +4,8 @@ import Quickshell
 import Quickshell.Io
 
 /**
- * Wallpaper bridge — keeps a warm in-memory snapshot of ~/Ricelin/wallpapers so
- * the wallpaper strip opens instantly instead of shelling out on demand. A
+ * Wallpaper bridge: keeps a warm in-memory snapshot of ~/Ricelin/wallpapers so
+ * the wallpaper strip opens instantly without shelling out on demand. A
  * refresh first runs the thumbnail script (generating missing 512px previews
  * and pruning ones whose source is gone), then re-lists the directory
  * newest-first and finally re-reads the state file wallpaper.sh maintains, so
@@ -44,9 +44,8 @@ Singleton {
     /**
      * wallpaper.sh blocks through the whole transition (awww wave, wallust,
      * reload), easily 1-2s; a pick landing in that window used to be silently
-     * swallowed. The newest request is queued instead and replayed once the
-     * running transition exits, so rapid iteration always converges on the
-     * last pick.
+     * swallowed. Now the newest request is queued and replayed once the
+     * running transition exits, so rapid iteration converges on the last pick.
      */
     property string queuedApply: ""
 

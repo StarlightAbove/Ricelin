@@ -7,11 +7,10 @@ import "Singletons"
 import "lib/fuzzy.js" as Fuzzy
 
 /**
- * Launcher surface: a search field over a ranked application list, rendered as
- * one of the morphing pill's surfaces rather than a separate window. Desktop
- * entries are ranked by fuzzy match and prior launch frequency (the usage file
- * is shared with the standalone launcher), and the chosen entry is executed
- * directly. Fills the lower body of the morphing pill.
+ * Launcher surface: search field over a ranked application list, drawn as one
+ * of the pill's surfaces. Desktop entries are ranked by fuzzy match and prior
+ * launch frequency (usage file shared with the standalone launcher), the
+ * chosen entry executes directly.
  */
 PillSurface {
     id: root

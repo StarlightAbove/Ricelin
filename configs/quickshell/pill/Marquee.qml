@@ -2,9 +2,9 @@ import QtQuick
 import "Singletons"
 
 /**
- * Single-line text that ping-pong scrolls when it is wider than the available
- * width instead of truncating, so long track and artist names stay readable.
- * The caller sets the width (e.g. via anchors) and `active` to gate the motion.
+ * Single-line text that ping-pong scrolls when wider than the available width,
+ * so long track and artist names stay readable. Caller sets the width (e.g.
+ * via anchors) and `active` to gate the motion.
  */
 Item {
     id: root

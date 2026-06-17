@@ -4,10 +4,9 @@ import Quickshell.Services.Pipewire
 import "Singletons"
 
 /**
- * Mixer surface content: header with DND / Keep-Awake chips and a row of four
- * vertical ink-faders wired to real hardware (brightness via ddcutil, vibrance
- * via nvibrant, volume and mic via Pipewire). Designed to fill the lower body
- * of the morphing pill.
+ * Mixer surface: header with DND / Keep-Awake chips and a row of four vertical
+ * ink-faders wired to real hardware (brightness via ddcutil, vibrance via
+ * nvibrant, volume and mic via Pipewire). Fills the lower body of the pill.
  */
 PillSurface {
     id: root
@@ -36,10 +35,9 @@ PillSurface {
     readonly property bool surfaceHovered: hoverTracker.hovered
 
     /**
-     * Tick centre of the currently focused fader, mapped live to this mixer's
-     * root, so the bead can glide as keyboard/hover focus moves across the row.
-     * Layout dependencies are voided before the mapToItem so the binding
-     * re-evaluates when the surface resizes rather than going stale.
+     * Tick centre of the focused fader, mapped into this mixer's root so the
+     * bead glides as keyboard/hover focus moves across the row. Layout deps are
+     * voided before mapToItem so the binding re-evaluates on resize (else stale).
      */
     readonly property point focusTickPoint: {
         void root.width;
@@ -56,10 +54,9 @@ PillSurface {
     amePoint: focusTickPoint
 
     /**
-     * Pointer-driven fader targeting. MouseArea hover delivery is unreliable on
-     * this layer-shell surface, so a non-blocking HoverHandler is the single
-     * hover source: its pointer x maps to a fader column, which drives keyboard
-     * focus directly.
+     * Pointer-driven fader targeting. MouseArea hover is flaky on this
+     * layer-shell surface, so a non-blocking HoverHandler is the only hover
+     * source. Its pointer x maps to a fader column and drives keyboard focus.
      */
     readonly property int hoverIndex: surfaceHovered && width > 0
         && hoverTracker.point.position.y >= faderRow.y

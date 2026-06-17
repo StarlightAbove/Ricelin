@@ -38,7 +38,7 @@ Item {
     /**
      * Draft of the password being typed for `expandedSsid`. Lives on the root
      * because the Repeater model is a fresh array on every NM rescan, which
-     * tears down and recreates the delegate mid-typing — the field restores
+     * tears down and recreates the delegate mid-typing. The field restores
      * itself from this draft when rebuilt.
      */
     property string pwDraft: ""

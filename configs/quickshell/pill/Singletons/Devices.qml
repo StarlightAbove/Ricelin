@@ -4,14 +4,12 @@ import Quickshell
 import Quickshell.Io
 
 /**
- * Device-control bridge — single owner of the screen vibrance (nvibrant) and
- * external-monitor brightness (ddcutil) integration the mixer drives. The
- * persisted vibrance percent is the rice's source of truth: it is loaded and
- * re-applied once at startup so the saved tint survives a reboot, and every
- * later set both pushes the value to nvibrant and writes it back to the same
- * state file. DDC-capable monitors are discovered once via `ddcutil detect`
- * (one brightness fader each) rather than hardcoding I2C bus numbers, and the
- * setvcp/getvcp wire format lives here so every caller speaks it identically.
+ * Single owner of screen vibrance (nvibrant) and external-monitor brightness
+ * (ddcutil) for the mixer. The persisted vibrance percent is the source of
+ * truth: loaded and re-applied once at startup so the tint survives a reboot,
+ * and every later set both pushes to nvibrant and writes back the state file.
+ * DDC monitors come from `ddcutil detect` (one brightness fader each); the
+ * setvcp/getvcp wire format lives here so every caller speaks it the same.
  */
 Singleton {
     id: root
@@ -60,12 +58,10 @@ Singleton {
             "_", root.stateFile, String(Math.round(pct))]);
     }
 
-    /** Discovers DDC-capable monitors into `ddcMonitors`. */
     function detect() {
         ddcDetect.running = true;
     }
 
-    /** Writes brightness `pct` to monitor `bus` via ddcutil setvcp. */
     function setBrightness(bus, pct) {
         Quickshell.execDetached(["timeout", "3", "ddcutil", "setvcp", "10",
             String(pct), "--bus", bus, "--noverify"]);

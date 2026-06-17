@@ -7,8 +7,7 @@ import "Singletons"
 
 /**
  * Row of icon buttons for windows parked on Hyprland's `special:minimized`
- * workspace (Super+M). Clicking one moves it back to the focused workspace so
- * minimized windows stay reachable from the pill rather than vanishing.
+ * workspace (Super+M). Clicking one moves it back to the focused workspace.
  */
 Row {
     id: root

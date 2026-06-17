@@ -7,7 +7,7 @@ import "Singletons"
 /**
  * Toast content for the morphing pill body: icon tile, app eyebrow, summary
  * with critical ember dot, optional body text and action pills, dismiss glyph
- * on the right. Draws no background of its own — the pill body behind it
+ * on the right. Draws no background of its own; the pill body behind it
  * provides the washi material. Clicking the body emits openCenter(); dismiss
  * and action pills consume their clicks. Auto-expires via Notifs.expireAt
  * unless the notification is critical.

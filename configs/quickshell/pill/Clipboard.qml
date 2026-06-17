@@ -4,16 +4,15 @@ import QtQuick
 import "Singletons"
 
 /**
- * Clipboard surface: a search field over the cliphist history, rendered as one
- * of the morphing pill's surfaces. Entries come from the warm Cliphist
- * singleton snapshot, so the list is populated the moment the pill finishes
- * morphing. Typing filters by substring, Return copies the selected entry back
- * to the clipboard and closes, hovering a row cross-fades a dismiss glyph that
- * deletes the entry (Ctrl+X does the same for the keyboard selection). Image
- * entries render their cached thumbnail beside the binary descriptor. Holding
- * the 掃 glyph for the heat duration wipes the entire history — press-and-hold
- * is the pill's native confirmation, mirroring the destructive power tiles;
- * progress sweeps along the header divider and drains on early release.
+ * Clipboard surface: search field over the cliphist history, drawn as one of
+ * the pill's surfaces. Entries come from the Cliphist singleton snapshot so the
+ * list is populated as soon as the pill finishes morphing. Typing filters by
+ * substring, Return copies the selected entry and closes, hovering a row
+ * cross-fades a dismiss glyph that deletes it (Ctrl+X does the same for the
+ * keyboard selection). Image entries render their cached thumbnail beside the
+ * size label. Holding the 掃 glyph for the heat duration wipes the whole
+ * history; progress sweeps along the header divider and drains on early
+ * release.
  */
 PillSurface {
     id: root

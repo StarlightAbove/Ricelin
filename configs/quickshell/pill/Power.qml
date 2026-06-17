@@ -8,9 +8,9 @@ import "Singletons"
 
 /**
  * Power surface: a row of hand-drawn session glyphs split by a hairline into a
- * safe group (lock, logout, sleep — fire on tap) and a destructive group
- * (restart, shutdown — press-and-hold). Holding a destructive tile ramps a
- * bottom-up heat fill; releasing early drains it, so a stray click can never
+ * safe group (lock, logout, sleep; fire on tap) and a destructive group
+ * (restart, shutdown; press-and-hold). Holding a destructive tile ramps a
+ * bottom-up heat fill, releasing early drains it, so a stray click can never
  * reboot the machine. Only the hovered or held action shows its label.
  */
 PillSurface {
@@ -154,11 +154,10 @@ PillSurface {
                     }
 
                     /**
-                     * The heat fill lives inside a ClippingRectangle that
-                     * carries the tile's corner radius: a plain Rectangle with
-                     * its own radius gets that radius clamped to height/2
-                     * while the fill is still flat, so its corners poked
-                     * outside the tile's rounded outline for the first beat
+                     * Heat fill lives in a ClippingRectangle that carries the
+                     * tile's corner radius. A plain Rectangle with its own radius
+                     * gets it clamped to height/2 while the fill is still flat,
+                     * so corners poked outside the tile outline on the first beat
                      * of every hold.
                      */
                     ClippingRectangle {

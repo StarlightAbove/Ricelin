@@ -14,15 +14,15 @@ import "Singletons"
  *  - `reserve` is a zero-content strip that only claims an exclusive zone the
  *    height of the rest pill, so tiled windows always sit below the pill even
  *    while it is expanded or a surface is open.
- *  - `overlay` is a full-screen transparent Overlay layer that hosts the single
+ *  - `overlay` is a full-screen transparent Overlay layer hosting the single
  *    morphing pill anchored at top-centre. The pill never moves windows and is
- *    never re-parented: it just grows in place, so every surface visually grows
- *    out of the rest pill rather than appearing as a separate panel.
+ *    never re-parented; it just grows in place, so every surface grows out of
+ *    the rest pill instead of popping up as a separate panel.
  *
  * Input is routed by the window mask. While the pill is collapsed the mask is
  * the pill rect only, so the rest of the screen clicks through to windows.
  * While the pill is expanded (hovered/pinned) or a surface is open the mask is
- * cleared so the whole layer catches clicks: a backdrop press dismisses, and
+ * cleared so the whole layer catches clicks. A backdrop press dismisses, and
  * keyboard focus is taken on demand so Escape closes the open surface.
  */
 ShellRoot {
@@ -66,8 +66,8 @@ ShellRoot {
     /**
      * Only these raw events can change what the pill renders (per-monitor
      * active workspace, minimized toplevels, monitor hotplug). Everything
-     * else — window drags, resizes, title spam — must not trigger the
-     * triple model refresh, which costs three Hyprland IPC round-trips.
+     * else (window drags, resizes, title spam) must not trigger the triple
+     * model refresh, which costs three Hyprland IPC round-trips.
      */
     readonly property var refreshEvents: ({
         workspace: true, workspacev2: true,

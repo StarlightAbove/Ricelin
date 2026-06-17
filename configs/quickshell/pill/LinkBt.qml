@@ -6,11 +6,11 @@ import Quickshell.Bluetooth
 import "Singletons"
 
 /**
- * Bluetooth drill-in for the link surface: back chevron, scan affordance with
- * 25 s auto-stop, adapter toggle and the live device list. Known devices use
- * the proven Quickshell connect/disconnect calls; unpaired devices run a
- * bluetoothctl pair-trust-connect flow with an inline ember while running and
- * a transient failure line. The pill body provides the surface material.
+ * Bluetooth drill-in for the link surface: back chevron, scan with 25s
+ * auto-stop, adapter toggle, live device list. Known devices use the
+ * Quickshell connect/disconnect calls; unpaired devices run a bluetoothctl
+ * pair-trust-connect flow with an inline ember while running and a transient
+ * failure line.
  */
 Item {
     id: root
@@ -25,8 +25,8 @@ Item {
 
     /**
      * BlueZ hands the cache out in arbitrary order; sort connected first,
-     * then paired, then named strangers, with nameless MACs at the bottom so
-     * a discovery scan doesn't churn the useful rows around.
+     * then paired, then named devices, nameless MACs last so a discovery scan
+     * doesn't churn the useful rows around.
      */
     readonly property var devicesSorted: devices.slice().sort(function(a, b) {
         function rank(d) {

@@ -7,23 +7,21 @@ import Quickshell.Services.Mpris
 import "Singletons"
 
 /**
- * Media surface — a sumi-e now-playing card. The album art bleeds edge-to-edge
- * on the left and is brushed into the lacquer by a horizontal fade; the same
- * art, blurred far past recognition, glows through a near-opaque warm wash
- * behind the whole card. Beside the cover sit title and artist, a dim
- * service · time line, and a vermilion hanko seal (奏 playing / 休 paused)
- * flanked by 前 / 次 skips. Playback is traced by a brush stroke along the
- * bottom: a dry full-width base stroke and a thicker painted stroke whose live
- * head is the dock point for the pill's soul bead. Driven by the active MPRIS
+ * Now-playing card. Album art bleeds edge-to-edge on the left, faded into the
+ * card; a blurred copy of the same art glows through a near-opaque warm wash
+ * behind everything. Right of the cover: title, artist, a dim service/time
+ * line, the play/pause seal (奏/休) flanked by 前/次 skips. Playback runs as a
+ * brush stroke along the bottom (dry base stroke + painted progress stroke);
+ * the painted head is where the pill's soul bead docks. Reads the active MPRIS
  * player.
  */
 PillSurface {
     id: root
 
     /**
-     * Active player preference: playing beats paused-with-track beats merely
-     * controllable — a browser exposing an empty MPRIS endpoint must not
-     * shadow a paused player that still carries a track.
+     * Pick order: playing > paused-with-track > controllable. Keeps a browser
+     * that exposes an empty MPRIS endpoint from shadowing a paused player that
+     * still has a track.
      */
     readonly property var player: {
         var list = Mpris.players.values;
@@ -72,9 +70,8 @@ PillSurface {
     property real sealPulse: 0
 
     /**
-     * Dock point of the soul bead: the live head of the painted stroke. The
-     * voided reads keep the mapping re-evaluating across morph resizes even
-     * though mapToItem itself is not reactive.
+     * Where the soul bead docks: head of the painted stroke. mapToItem isn't
+     * reactive, so the void reads force re-eval across morph resizes.
      */
     readonly property point seamHead: {
         void root.width;
@@ -104,10 +101,10 @@ PillSurface {
     }
 
     /**
-     * Art only loads while the surface is open: a 24/7 daemon must not fetch
+     * Art loads only while the surface is open. A 24/7 daemon shouldn't fetch
      * and decode remote cover URLs on every background track change, and the
-     * crash on 2026-06-12 segfaulted exactly during a closed-surface Spotify
-     * metadata update on this path.
+     * 2026-06-12 segfault hit exactly here during a closed-surface Spotify
+     * metadata update.
      */
     onArtUrlChanged: if (active) coverPair.load(artUrl)
     onActiveChanged: if (active) coverPair.load(artUrl)
@@ -359,7 +356,7 @@ PillSurface {
                 rotation: -1.5
                 scale: 1 + 0.08 * root.sealPulse
 
-                /** 1 while playing, eased to 0 when paused — drives the ink desaturation. */
+                /** 1 while playing, eases to 0 when paused. drives the ink desaturation. */
                 property real sat: root.playing ? 1 : 0
                 Behavior on sat { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
 
@@ -419,9 +416,8 @@ PillSurface {
             readonly property real headY: waveY(drawF)
 
             /**
-             * Smooth half-second chase between position ticks, same contract as
-             * the old seamFill width Behavior: enabled only for small advances
-             * so seeks and track changes snap instead of gliding.
+             * Half-second chase between position ticks. Only enabled for small
+             * advances, so seeks and track changes snap instead of gliding.
              */
             Behavior on drawF {
                 enabled: Math.abs(root.frac - stroke.lastFrac) < 0.02
@@ -433,7 +429,7 @@ PillSurface {
             onWidthChanged: requestPaint()
             onVisibleChanged: if (visible) requestPaint()
 
-            /** Organic spine waver: pronounced near the tail, settling flat toward the end. */
+            /** stroke spine waver: strong near the tail, flattens toward the end. */
             function waveY(u) {
                 return height / 2 - 2.6 * Math.sin(3 * Math.PI * u) * Math.exp(-2.5 * u) * root.s;
             }

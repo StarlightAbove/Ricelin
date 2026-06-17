@@ -28,9 +28,9 @@ Singleton {
     readonly property color flameGlow: "#ff9a64"
 
     /**
-     * Flame canvas ramp — literal hex strings (not color), fed directly to
-     * Canvas addColorStop/strokeStyle. A color property would serialize to
-     * #aarrggbb and corrupt the gradient render.
+     * Flame canvas ramp: literal hex strings (color type won't work), fed
+     * directly to Canvas addColorStop/strokeStyle. A color property serializes
+     * to #aarrggbb and corrupts the gradient render.
      */
     readonly property string flameInk:   "#f0795a"
     readonly property string flameEmber: "#7e2812"
@@ -48,8 +48,7 @@ Singleton {
     /**
      * MPRIS trackArtists arrives as a JS array from some players and as a
      * plain string from others (Spotify); calling join on the string throws
-     * and kills the whole binding. Normalizes both, with trackArtist as
-     * fallback.
+     * and kills the whole binding. Handles both, falls back to trackArtist.
      */
     function joinArtists(artists, single) {
         if (artists && typeof artists.join === "function" && artists.length > 0)

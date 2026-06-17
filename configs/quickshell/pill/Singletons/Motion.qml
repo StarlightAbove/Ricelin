@@ -13,9 +13,9 @@ Singleton {
     readonly property int easeMorph:    Easing.BezierSpline
 
     /**
-     * Liquid morph curve — cubic-bezier(0.16, 1, 0.3, 1). Front-loaded like an
-     * exponential chase but with a long, visible settle tail, matching the
-     * approved mockup feel. Use together with easeMorph (BezierSpline).
+     * Liquid morph curve, cubic-bezier(0.16, 1, 0.3, 1). Front-loaded like an
+     * exponential chase but with a long, visible settle tail. Use with
+     * easeMorph (BezierSpline).
      */
     readonly property var morphCurve: [0.16, 1, 0.3, 1, 1, 1]
     readonly property real rSmall: 7
