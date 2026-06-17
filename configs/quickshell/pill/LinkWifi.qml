@@ -34,6 +34,16 @@ Item {
     property string expandedSsid: ""
     property bool connecting: false
     property bool connectFailed: false
+    property bool scanning: false
+
+    readonly property string hsCon: "RicelinHotspot"
+    readonly property string hsIface: wifiDev ? (wifiDev.name || "wlan0") : "wlan0"
+    property string hsName: "Ricelin"
+    property string hsPw: ""
+    property bool hsActive: false
+    property bool hsBusy: false
+    property string hsEdit: ""
+    property string hsDraft: ""
 
     /**
      * Draft of the password being typed for `expandedSsid`. Lives on the root
@@ -46,7 +56,7 @@ Item {
     property string attemptSsid: ""
     property bool attemptWasKnown: false
 
-    implicitHeight: listFrame.y + listFrame.height
+    implicitHeight: hsBlock.y + hsBlock.height
 
     function isSecured(ssid) {
         var sec = securityMap[ssid];
@@ -84,7 +94,8 @@ Item {
                 net.disconnect();
             return;
         }
-        if (knownProfiles[ssid] === true || !isSecured(ssid)) {
+        var secKnown = securityMap[ssid] !== undefined;
+        if (knownProfiles[ssid] === true || (secKnown && !isSecured(ssid))) {
             expandedSsid = "";
             if (typeof net.connect === "function")
                 net.connect();
@@ -113,12 +124,156 @@ Item {
         connProc.running = true;
     }
 
+    /**
+     * Reload pulse: forces a fresh nmcli rescan and spins the control for up to
+     * 10s. The device scanner already runs while the drill-in is open, so the
+     * list never empties; this only refreshes results and drives the spinner.
+     */
+    function startScan() {
+        if (!wifiOn)
+            return;
+        scanning = true;
+        rescanProc.running = true;
+        scanTimer.restart();
+    }
+
+    function stopScan() {
+        scanning = false;
+        scanTimer.stop();
+    }
+
     onActiveChanged: {
         if (active) {
             refresh();
+            refreshHotspot();
         } else {
+            stopScan();
             expandedSsid = "";
             connectFailed = false;
+            hsEdit = "";
+        }
+    }
+
+    onWifiOnChanged: if (!wifiOn) stopScan()
+
+    Binding {
+        target: root.wifiDev
+        property: "scannerEnabled"
+        value: root.active && root.wifiOn
+        when: root.wifiDev !== null
+    }
+
+    Timer {
+        id: scanTimer
+        interval: 10000
+        onTriggered: root.stopScan()
+    }
+
+    Process {
+        id: rescanProc
+        command: ["nmcli", "dev", "wifi", "rescan"]
+    }
+
+    /**
+     * Brings the shared AP up with the current name and password, creating the
+     * persistent connection on first use and modifying it on later changes. Name
+     * and password are passed as positional arguments, never spliced into the
+     * shell string, so an odd character cannot break or inject the command.
+     */
+    function applyHotspot() {
+        if (hsBusy || hsPw.length < 8)
+            return;
+        hsBusy = true;
+        hsApplyProc.command = ["sh", "-c",
+            'c="' + hsCon + '"; '
+            + 'if nmcli -t connection show "$c" >/dev/null 2>&1; then '
+            +   'nmcli connection modify "$c" 802-11-wireless.ssid "$1" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "$2"; '
+            + 'else '
+            +   'nmcli connection add type wifi ifname "$3" con-name "$c" autoconnect no 802-11-wireless.ssid "$1" 802-11-wireless.mode ap 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "$2" ipv4.method shared; '
+            + 'fi; '
+            + 'nmcli connection up "$c"',
+            "sh", hsName, hsPw, hsIface];
+        hsApplyProc.running = true;
+    }
+
+    function stopHotspot() {
+        if (hsBusy)
+            return;
+        hsBusy = true;
+        hsDownProc.running = true;
+    }
+
+    function refreshHotspot() {
+        hsStateProc.running = true;
+        hsReadProc.running = true;
+    }
+
+    /**
+     * Commits an inline name or password edit, ignoring a password shorter than
+     * the 8-character WPA2 minimum. A live hotspot is re-applied so the change
+     * takes effect at once.
+     */
+    function commitHotspotEdit() {
+        if (hsEdit === "name") {
+            if (hsDraft.length)
+                hsName = hsDraft;
+        } else if (hsEdit === "pw") {
+            if (hsDraft.length >= 8)
+                hsPw = hsDraft;
+        }
+        hsEdit = "";
+        if (hsActive)
+            applyHotspot();
+    }
+
+    /**
+     * Builds an eight-character WPA2 password from an unambiguous alphabet, used
+     * when the hotspot is switched on before a password has been set.
+     */
+    function generatePw() {
+        var cs = "abcdefghijkmnpqrstuvwxyz23456789";
+        var s = "";
+        for (var i = 0; i < 8; i++)
+            s += cs.charAt(Math.floor(Math.random() * cs.length));
+        return s;
+    }
+
+    Process {
+        id: hsApplyProc
+        onExited: {
+            root.hsBusy = false;
+            root.refreshHotspot();
+        }
+    }
+
+    Process {
+        id: hsDownProc
+        command: ["nmcli", "connection", "down", root.hsCon]
+        onExited: {
+            root.hsBusy = false;
+            root.refreshHotspot();
+        }
+    }
+
+    Process {
+        id: hsStateProc
+        command: ["sh", "-c", "nmcli -t -f NAME connection show --active | grep -qx " + root.hsCon + " && echo on || echo off"]
+        stdout: StdioCollector {
+            onStreamFinished: root.hsActive = this.text.trim() === "on"
+        }
+    }
+
+    Process {
+        id: hsReadProc
+        command: ["nmcli", "-t", "-s", "-g", "802-11-wireless.ssid,802-11-wireless-security.psk", "connection", "show", root.hsCon]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var lines = this.text.split("\n");
+                if (lines.length >= 1 && lines[0].length)
+                    root.hsName = lines[0];
+                if (lines.length >= 2 && lines[1].length)
+                    root.hsPw = lines[1];
+            }
         }
     }
 
@@ -248,14 +403,53 @@ Item {
             }
         }
 
-        LinkToggle {
-            s: root.s
+        Row {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            on: root.wifiOn
-            onToggled: {
-                if (typeof Networking !== "undefined" && Networking)
-                    Networking.wifiEnabled = !Networking.wifiEnabled;
+            spacing: 12 * root.s
+
+            Item {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.wifiOn
+                width: 16 * root.s
+                height: 16 * root.s
+
+                GlyphIcon {
+                    id: reloadGlyph
+                    anchors.fill: parent
+                    name: "reboot"
+                    color: root.scanning ? Theme.flameGlow : (reloadArea.containsMouse ? Theme.cream : Theme.iconDim)
+                    stroke: 1.8
+
+                    RotationAnimator {
+                        target: reloadGlyph
+                        running: root.scanning
+                        from: 0
+                        to: 360
+                        duration: 1000
+                        loops: Animation.Infinite
+                        onRunningChanged: if (!running) reloadGlyph.rotation = 0
+                    }
+                }
+
+                MouseArea {
+                    id: reloadArea
+                    anchors.fill: parent
+                    anchors.margins: -6 * root.s
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.scanning ? root.stopScan() : root.startScan()
+                }
+            }
+
+            LinkToggle {
+                s: root.s
+                anchors.verticalCenter: parent.verticalCenter
+                on: root.wifiOn
+                onToggled: {
+                    if (typeof Networking !== "undefined" && Networking)
+                        Networking.wifiEnabled = !Networking.wifiEnabled;
+                }
             }
         }
     }
@@ -360,18 +554,20 @@ Item {
                                 GlyphIcon {
                                     anchors.verticalCenter: parent.verticalCenter
                                     visible: netItem.secured
-                                    width: 8 * root.s
-                                    height: 8 * root.s
-                                    name: "lock"
-                                    color: Theme.faint
-                                    stroke: 2.2
+                                    width: 11 * root.s
+                                    height: 11 * root.s
+                                    name: "lock-round"
+                                    color: Theme.iconDim
+                                    stroke: 1.8
                                 }
 
-                                Filament {
+                                WifiGlyph {
                                     anchors.verticalCenter: parent.verticalCenter
+                                    width: 15 * root.s
+                                    height: 15 * root.s
                                     s: root.s
-                                    kind: "signal"
-                                    level: ((netItem.modelData && netItem.modelData.signalStrength) || 0) / 100
+                                    on: true
+                                    level: (netItem.modelData && netItem.modelData.signalStrength) || 0
                                 }
                             }
                         }
@@ -461,6 +657,176 @@ Item {
             anchors.fill: parent
             s: root.s
             flick: netFlick
+        }
+    }
+
+    Item {
+        id: hsBlock
+        anchors.top: listFrame.bottom
+        anchors.topMargin: 8 * root.s
+        anchors.left: parent.left
+        anchors.right: parent.right
+        visible: root.wifiOn
+        height: root.wifiOn ? hsCol.implicitHeight + 9 * root.s : 0
+        clip: true
+
+        Rectangle {
+            id: hsDivider
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 1
+            color: Theme.hair
+        }
+
+        Column {
+            id: hsCol
+            anchors.top: hsDivider.bottom
+            anchors.topMargin: 9 * root.s
+            anchors.left: parent.left
+            anchors.right: parent.right
+            spacing: 6 * root.s
+
+            component CredRow: Item {
+                id: cr
+                property string field: ""
+                property string label: ""
+                property string value: ""
+                property bool secret: false
+                readonly property bool editing: root.hsEdit === cr.field
+                width: parent ? parent.width : 0
+                height: 22 * root.s
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 8 * root.s
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: cr.label
+                    color: Theme.faint
+                    font.family: Theme.font
+                    font.pixelSize: 9 * root.s
+                    font.weight: Font.Medium
+                    font.capitalization: Font.AllUppercase
+                    font.letterSpacing: 1 * root.s
+                }
+
+                Text {
+                    visible: !cr.editing
+                    anchors.right: parent.right
+                    anchors.rightMargin: 8 * root.s
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: cr.value.length ? cr.value : "tap to set"
+                    color: cr.value.length ? (cr.secret ? Theme.flameCore : Theme.cream) : Theme.faint
+                    font.family: Theme.font
+                    font.pixelSize: 12 * root.s
+                    font.weight: Font.Medium
+                    font.features: { "tnum": 1 }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6 * root.s
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            root.hsDraft = cr.value;
+                            root.hsEdit = cr.field;
+                            Qt.callLater(crField.forceActiveFocus);
+                        }
+                    }
+                }
+
+                TextField {
+                    id: crField
+                    visible: cr.editing
+                    anchors.right: parent.right
+                    anchors.rightMargin: 8 * root.s
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 150 * root.s
+                    horizontalAlignment: TextInput.AlignRight
+                    background: null
+                    padding: 0
+                    color: Theme.cream
+                    font.family: Theme.font
+                    font.pixelSize: 12 * root.s
+                    placeholderText: cr.field === "pw" ? "8+ characters" : "Name"
+                    placeholderTextColor: Theme.faint
+                    selectByMouse: true
+                    selectionColor: Theme.verm
+                    text: cr.editing ? root.hsDraft : ""
+                    onTextEdited: root.hsDraft = text
+                    onAccepted: root.commitHotspotEdit()
+                }
+            }
+
+            Rectangle {
+                width: parent.width
+                height: 34 * root.s
+                radius: 10 * root.s
+                color: root.hsActive ? Theme.frameBg : "transparent"
+
+                GlyphIcon {
+                    id: hsGlyph
+                    anchors.left: parent.left
+                    anchors.leftMargin: 8 * root.s
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 17 * root.s
+                    height: 17 * root.s
+                    name: "hotspot"
+                    color: root.hsActive ? Theme.flameGlow : Theme.iconDim
+                    stroke: 1.7
+                }
+
+                Column {
+                    anchors.left: hsGlyph.right
+                    anchors.leftMargin: 11 * root.s
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 1 * root.s
+
+                    Text {
+                        text: "Hotspot"
+                        color: Theme.cream
+                        font.family: Theme.font
+                        font.pixelSize: 12.5 * root.s
+                        font.weight: Font.DemiBold
+                    }
+                    Text {
+                        text: root.hsBusy ? "…" : (root.hsActive ? "Active" : "Off")
+                        color: root.hsActive ? Theme.flameGlow : Theme.dim
+                        font.family: Theme.font
+                        font.pixelSize: 9.5 * root.s
+                        font.weight: Font.Medium
+                    }
+                }
+
+                LinkToggle {
+                    s: root.s
+                    anchors.right: parent.right
+                    anchors.rightMargin: 8 * root.s
+                    anchors.verticalCenter: parent.verticalCenter
+                    on: root.hsActive
+                    onToggled: {
+                        if (root.hsActive) {
+                            root.stopHotspot();
+                        } else {
+                            if (root.hsPw.length < 8)
+                                root.hsPw = root.generatePw();
+                            root.applyHotspot();
+                        }
+                    }
+                }
+            }
+
+            CredRow {
+                field: "name"
+                label: "Network"
+                value: root.hsName
+            }
+
+            CredRow {
+                field: "pw"
+                label: "Password"
+                value: root.hsPw
+                secret: true
+            }
         }
     }
 }

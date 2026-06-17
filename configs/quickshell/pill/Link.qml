@@ -495,7 +495,7 @@ PillSurface {
                         visible: !root.wired && root.wifiOn && root.wifiActive !== null
                         s: root.s
                         kind: "signal"
-                        level: ((root.wifiActive && root.wifiActive.signalStrength) || 0) / 100
+                        level: (root.wifiActive && root.wifiActive.signalStrength) || 0
                     }
 
                     LinkToggle {
