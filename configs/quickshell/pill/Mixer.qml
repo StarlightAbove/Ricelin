@@ -23,12 +23,15 @@ PillSurface {
     readonly property int faderCount: faders.length
     readonly property var faders: {
         void brRep.count;
+        void blLoader.item;
         var out = [];
         for (var i = 0; i < brRep.count; i++) {
             var f = brRep.itemAt(i);
             if (f)
                 out.push(f);
         }
+        if (blLoader.item)
+            out.push(blLoader.item);
         out.push(vibFader, volFader, micFader);
         return out;
     }
@@ -93,6 +96,7 @@ PillSurface {
     Component.onCompleted: Devices.detect()
 
     property real pendingVibrance: -1
+    property int pendingBacklight: -1
 
     Timer {
         id: vibDebounce
@@ -100,6 +104,15 @@ PillSurface {
         onTriggered: if (root.pendingVibrance >= 0) {
             Devices.setVibrance(root.pendingVibrance);
             root.pendingVibrance = -1;
+        }
+    }
+
+    Timer {
+        id: blDebounce
+        interval: 160
+        onTriggered: if (root.pendingBacklight >= 0) {
+            Devices.setBacklight(root.pendingBacklight);
+            root.pendingBacklight = -1;
         }
     }
 
@@ -251,6 +264,24 @@ PillSurface {
                         }
                     }
                 }
+            }
+        }
+
+        Loader {
+            id: blLoader
+            active: Devices.backlightPresent
+            visible: active
+            width: active ? faderRow.colW : 0
+
+            sourceComponent: VFader {
+                width: faderRow.colW
+                s: root.s
+                icon: "sun"
+                focused: root.focusIndex === brRep.count
+                value: Devices.backlightPct / 100
+                valueLabel: Devices.backlightPct + "%"
+                onMoved: (v) => Devices.backlightPct = Math.max(1, Math.min(100, Math.round(v * 100)))
+                onCommitted: (v) => { root.pendingBacklight = Math.max(1, Math.min(100, Math.round(v * 100))); blDebounce.restart(); }
             }
         }
 

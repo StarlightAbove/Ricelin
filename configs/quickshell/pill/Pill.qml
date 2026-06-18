@@ -626,7 +626,7 @@ Item {
 
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: Battery.present
+                    visible: wifiIcon.visible || batteryIcon.visible
                     spacing: 12 * pill.s
 
                     Item {
@@ -658,6 +658,7 @@ Item {
                     Item {
                         id: batteryIcon
                         anchors.verticalCenter: parent.verticalCenter
+                        visible: Battery.present
                         width: battPct.implicitWidth
                         height: 17 * pill.s
 

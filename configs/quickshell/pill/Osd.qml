@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell.Widgets
 import Quickshell.Services.Pipewire
 import Quickshell.Services.Mpris
+import Quickshell.Io
 import "Singletons"
 
 Item {
@@ -17,6 +18,8 @@ Item {
     property string shownArtUrl: ""
     property string lastTrackLine: ""
     property bool lastPlaying: false
+    property real brightness: 0
+    property int lastBrightness: -1
 
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property bool muted: sink && sink.audio ? sink.audio.muted : false
@@ -67,6 +70,7 @@ Item {
         }
         kind = which;
         flashing = true;
+        hideTimer.interval = which === "battery" ? 2000 : 1400;
         hideTimer.restart();
     }
 
@@ -118,6 +122,33 @@ Item {
         target: root.player
         function onTrackTitleChanged() { root.trackEvent(); }
         function onPlaybackStateChanged() { root.trackEvent(); }
+    }
+
+    Connections {
+        target: Battery
+        enabled: Battery.present
+        function onChargingChanged() {
+            if (Battery.charging)
+                root.flash("battery");
+        }
+    }
+
+    Process {
+        id: brightMonitor
+        command: ["sh", "-c", "dev=$(ls /sys/class/backlight 2>/dev/null | head -n1); [ -n \"$dev\" ] || exit 0; max=$(cat /sys/class/backlight/$dev/max_brightness); last=\"\"; while true; do val=$(cat /sys/class/backlight/$dev/brightness); if [ \"$val\" != \"$last\" ]; then echo \"$(( val * 100 / max ))\"; last=\"$val\"; fi; sleep 0.15; done"]
+        running: true
+        stdout: SplitParser {
+            onRead: (line) => {
+                var pct = parseInt(line.trim(), 10);
+                if (isNaN(pct))
+                    return;
+                var seen = root.lastBrightness >= 0;
+                root.brightness = Math.max(0, Math.min(100, pct)) / 100.0;
+                root.lastBrightness = pct;
+                if (seen)
+                    root.flash("brightness");
+            }
+        }
     }
 
     Item {
@@ -234,6 +265,141 @@ Item {
             font.weight: Font.DemiBold
             maximumLineCount: 1
             elide: Text.ElideRight
+        }
+    }
+
+    Item {
+        id: brightRow
+        anchors.fill: parent
+        opacity: root.kind === "brightness" ? 1 : 0
+        visible: opacity > 0.01
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+
+        GlyphIcon {
+            id: brightGlyph
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            width: 17 * root.s
+            height: 17 * root.s
+            name: "sun"
+            color: Theme.iconDim
+            stroke: 1.7
+        }
+
+        Text {
+            id: brightPct
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: 32 * root.s
+            horizontalAlignment: Text.AlignRight
+            text: Math.round(root.brightness * 100) + "%"
+            color: Theme.cream
+            font.family: Theme.font
+            font.pixelSize: 11 * root.s
+            font.weight: Font.DemiBold
+            font.features: { "tnum": 1 }
+        }
+
+        Rectangle {
+            anchors.left: brightGlyph.right
+            anchors.leftMargin: 12 * root.s
+            anchors.right: brightPct.left
+            anchors.rightMargin: 12 * root.s
+            anchors.verticalCenter: parent.verticalCenter
+            height: 4 * root.s
+            radius: 2 * root.s
+            color: Theme.threadBg
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: parent.width * root.brightness
+                radius: parent.radius
+                color: Theme.vermLit
+                Behavior on width { NumberAnimation { duration: Motion.fast } }
+            }
+        }
+    }
+
+    Item {
+        id: batteryRow
+        anchors.fill: parent
+        opacity: root.kind === "battery" ? 1 : 0
+        visible: opacity > 0.01
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+
+        GlyphIcon {
+            id: battGlyph
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            width: 17 * root.s
+            height: 17 * root.s
+            name: "bolt"
+            color: Theme.flameGlow
+            stroke: 1.7
+        }
+
+        Text {
+            id: battPct
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: 40 * root.s
+            horizontalAlignment: Text.AlignRight
+            text: Battery.pct + "%"
+            color: Theme.cream
+            font.family: Theme.font
+            font.pixelSize: 11 * root.s
+            font.weight: Font.DemiBold
+            font.features: { "tnum": 1 }
+        }
+
+        Rectangle {
+            anchors.left: battGlyph.right
+            anchors.leftMargin: 12 * root.s
+            anchors.right: battPct.left
+            anchors.rightMargin: 12 * root.s
+            anchors.verticalCenter: parent.verticalCenter
+            height: 4 * root.s
+            radius: 2 * root.s
+            color: Theme.threadBg
+            clip: true
+
+            Rectangle {
+                id: battFill
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: parent.width * Battery.frac
+                radius: parent.radius
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0; color: Theme.vermDeep }
+                    GradientStop { position: 1.0; color: Theme.flameGlow }
+                }
+                Behavior on width { NumberAnimation { duration: Motion.fast } }
+
+                Rectangle {
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 34 * root.s
+                    color: "transparent"
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: "#00ffffff" }
+                        GradientStop { position: 0.5; color: "#55ffe6d6" }
+                        GradientStop { position: 1.0; color: "#00ffffff" }
+                    }
+
+                    NumberAnimation on x {
+                        from: -34 * root.s
+                        to: battFill.width
+                        duration: 1200
+                        loops: Animation.Infinite
+                        running: root.kind === "battery" && Battery.charging
+                    }
+                }
+            }
         }
     }
 }
