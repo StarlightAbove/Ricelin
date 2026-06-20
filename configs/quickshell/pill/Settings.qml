@@ -148,7 +148,7 @@ PillSurface {
         property var value
         signal picked(var value)
 
-        readonly property real pad: 2 * root.s
+        readonly property real pad: 1
 
         width: pills.implicitWidth + 2 * pad
         height: pills.implicitHeight + 2 * pad
@@ -172,7 +172,7 @@ PillSurface {
 
                     width: optLabel.implicitWidth + 18 * root.s
                     height: optLabel.implicitHeight + 12 * root.s
-                    radius: 7 * root.s
+                    radius: 8 * root.s
                     color: opt.current ? Qt.alpha(Theme.vermLit, 0.20) : "transparent"
                     border.width: 1
                     border.color: opt.current ? Qt.alpha(Theme.vermLit, 0.55) : "transparent"
