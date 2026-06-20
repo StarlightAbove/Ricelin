@@ -94,11 +94,12 @@ function setMonitor(luaText, output, mode, position, scale) {
 /**
  * Replaces the value of a single `name = <value>` field within a hl.monitor
  * block, preserving the field name, the `=` spacing and any trailing comma. The
- * value run is everything after `=` up to the next comma or the block's closing
- * brace. Returns `{ text, ok }`.
+ * value run is a complete double-quoted string when the value is quoted (so a
+ * comma inside the quotes is not mistaken for the field end), otherwise the run
+ * up to the next comma or the block's closing brace. Returns `{ text, ok }`.
  */
 function replaceField(block, name, value) {
-    var re = new RegExp("(" + name + "\\s*=\\s*)([^,}\\n]*)");
+    var re = new RegExp("(" + name + "\\s*=\\s*)(\"[^\"]*\"|[^,}\\n]*)");
     if (!re.test(block))
         return { text: block, ok: false };
     return { text: block.replace(re, "$1" + value), ok: true };

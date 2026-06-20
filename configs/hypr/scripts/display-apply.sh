@@ -20,19 +20,23 @@ apply)
     mode=$3
     position=$4
     scale=$5
-    snapshot_old || exit 1
-    : > "$pending_file"
+    if [ ! -e "$old_file" ]; then
+        snapshot_old || exit 1
+    fi
+    token=$(date +%s%N)
+    printf '%s' "$token" > "$pending_file"
     new_spec="hl.monitor({ output = \"$out\", mode = \"$mode\", position = \"$position\", scale = $scale }) return \"ok\""
     hyprctl eval "$new_spec" >/dev/null 2>&1
     setsid -f sh -c '
         pending=$1
         old=$2
-        sleep 12
-        if [ -e "$pending" ]; then
+        token=$3
+        sleep 14
+        if [ "$(cat "$pending" 2>/dev/null)" = "$token" ]; then
             hyprctl eval "$(cat "$old")" >/dev/null 2>&1
             rm -f "$pending" "$old"
         fi
-    ' sh "$pending_file" "$old_file" >/dev/null 2>&1
+    ' sh "$pending_file" "$old_file" "$token" >/dev/null 2>&1
     ;;
 keep)
     rm -f "$pending_file" "$old_file"
