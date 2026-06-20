@@ -117,6 +117,7 @@ ShellRoot {
         function link(mon: string): void { root.toggleSurface(mon, "link"); }
         function battery(mon: string): void { root.toggleSurface(mon, "battery"); }
         function settings(mon: string): void { root.toggleSurface(mon, "settings"); }
+        function keybinds(mon: string): void { root.toggleSurface(mon, "keybinds"); }
         function recorder(mon: string): void { root.toggleSurface(mon, "recorder"); }
         function screenrec(mon: string): void { root.toggleSurface(mon, "recorder"); }
         function record(mon: string): void { root.toggleSurface(mon, "recorder"); }
@@ -272,8 +273,14 @@ ShellRoot {
                         root.close();
                     }
                 }
-                Keys.onUpPressed: (e) => { e.accepted = pill.mixerStep(1) || pill.recorderStep(5) || pill.settingsMove(-1); }
-                Keys.onDownPressed: (e) => { e.accepted = pill.mixerStep(-1) || pill.recorderStep(-5) || pill.settingsMove(1); }
+                Keys.onUpPressed: (e) => {
+                    if (pill.keybindsOpen && !pill.keybindsListening) { pill.keybindsMove(-1); e.accepted = true; return; }
+                    e.accepted = pill.mixerStep(1) || pill.recorderStep(5) || pill.settingsMove(-1);
+                }
+                Keys.onDownPressed: (e) => {
+                    if (pill.keybindsOpen && !pill.keybindsListening) { pill.keybindsMove(1); e.accepted = true; return; }
+                    e.accepted = pill.mixerStep(-1) || pill.recorderStep(-5) || pill.settingsMove(1);
+                }
                 Keys.onLeftPressed: (e) => {
                     if (pill.mixerOpen) { pill.mixerFocusMove(-1); e.accepted = true; }
                     else if (pill.wallpaperOpen) { pill.wallpaperMove(-1); e.accepted = true; }
@@ -313,6 +320,9 @@ ShellRoot {
                         e.accepted = true;
                     } else if (pill.settingsOpen) {
                         if (!e.isAutoRepeat) pill.settingsActivate();
+                        e.accepted = true;
+                    } else if (pill.keybindsOpen && !pill.keybindsListening) {
+                        if (!e.isAutoRepeat) pill.keybindsActivate();
                         e.accepted = true;
                     }
                 }
@@ -371,6 +381,10 @@ ShellRoot {
                 }
                 function onWallpaperSearchingChanged() {
                     if (!pill.wallpaperSearching && overlay.surfaceOpen)
+                        focusScope.forceActiveFocus();
+                }
+                function onKeybindsListeningChanged() {
+                    if (!pill.keybindsListening && overlay.surfaceOpen)
                         focusScope.forceActiveFocus();
                 }
             }

@@ -23,6 +23,8 @@ PillSurface {
 
     implicitHeight: content.implicitHeight
 
+    signal requestSurface(string name)
+
     /**
      * Row-soul focus registry, mirroring the link surface: each row reports its
      * hover here and the bead docks as a glowing seam at the left edge of the
@@ -56,6 +58,7 @@ PillSurface {
         { item: secRow, kind: "toggle", get: function () { return Flags.clockSeconds; }, set: function (v) { Flags.clockSeconds = v; } },
         { item: glyphRow, kind: "toggle", get: function () { return Flags.showGlyphs; }, set: function (v) { Flags.showGlyphs = v; } },
         { item: accentRow, kind: "seg", vals: [false, true], get: function () { return Flags.dynamicPalette; }, set: function (v) { Flags.dynamicPalette = v; } },
+        { item: keysRow, kind: "nav", surface: "keybinds" },
         { item: cdRow, kind: "seg", vals: [0, 3, 5, 10], get: function () { return Flags.recordCountdown; }, set: function (v) { Flags.recordCountdown = v; } }
     ]
 
@@ -91,6 +94,31 @@ PillSurface {
         var r = rows[kbIndex];
         if (r.kind === "toggle")
             r.set(!r.get());
+        else if (r.kind === "nav")
+            root.requestSurface(r.surface);
+    }
+
+    /**
+     * A click anywhere on a row drives its control: toggles flip, nav rows open
+     * their surface, and segmented rows step to the next value (wrapping). The
+     * control's own hit areas stay on top, so clicking a specific segment still
+     * picks it directly.
+     */
+    function activateRow(item) {
+        var idx = rowIndexOf(item);
+        if (idx < 0)
+            return;
+        kbIndex = idx;
+        focusRowItem = item;
+        var r = rows[idx];
+        if (r.kind === "toggle")
+            r.set(!r.get());
+        else if (r.kind === "nav")
+            root.requestSurface(r.surface);
+        else if (r.kind === "seg") {
+            var i = r.vals.indexOf(r.get());
+            r.set(r.vals[((i < 0 ? 0 : i) + 1) % r.vals.length]);
+        }
     }
 
     readonly property bool rowFocused: focusRowItem !== null && active
@@ -198,6 +226,12 @@ PillSurface {
             radius: 9 * root.s
             color: (srowHover.hovered || root.focusRowItem === srow) ? Theme.frameBg : "transparent"
             Behavior on color { ColorAnimation { duration: Motion.fast } }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.activateRow(srow)
         }
 
         Column {
@@ -353,6 +387,46 @@ PillSurface {
                 options: [{ label: "Static", value: false }, { label: "Dynamic", value: true }]
                 value: Flags.dynamicPalette
                 onPicked: (v) => Flags.dynamicPalette = v
+            }
+        }
+
+        Text {
+            topPadding: 17 * root.s
+            bottomPadding: 2 * root.s
+            leftPadding: 12 * root.s
+            text: "Hotkeys"
+            color: Theme.faint
+            font.family: Theme.font
+            font.pixelSize: 8.5 * root.s
+            font.weight: Font.Bold
+            font.capitalization: Font.AllUppercase
+            font.letterSpacing: 1.2 * root.s
+        }
+
+        SRow {
+            id: keysRow
+            name: "Edit keybinds"
+            sub: "rebind shortcuts"
+
+            Item {
+                width: 16 * root.s
+                height: 16 * root.s
+
+                GlyphIcon {
+                    anchors.centerIn: parent
+                    width: 13 * root.s
+                    height: 13 * root.s
+                    name: "chevron-right"
+                    color: root.focusRowItem === keysRow ? Theme.cream : Theme.iconDim
+                    stroke: 2.2
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -8 * root.s
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.requestSurface("keybinds")
+                }
             }
         }
 

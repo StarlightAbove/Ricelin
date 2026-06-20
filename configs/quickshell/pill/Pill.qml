@@ -41,6 +41,7 @@ Item {
     readonly property bool linkOpen: surface === "link"
     readonly property bool batteryOpen: surface === "battery"
     readonly property bool settingsOpen: surface === "settings"
+    readonly property bool keybindsOpen: surface === "keybinds"
     readonly property bool recorderOpen: surface === "recorder"
     readonly property bool sysmonOpen: surface === "sysmon"
     readonly property bool hasMedia: Mpris.players.values.length > 0
@@ -96,6 +97,7 @@ Item {
     readonly property real mediaH: 150 * s
     readonly property real batteryW: 316 * s
     readonly property real settingsW: 392 * s
+    readonly property real keybindsW: 460 * s
     readonly property real recorderW: 384 * s
     readonly property real sysmonW: 392 * s
     readonly property real toastW: 342 * s
@@ -126,6 +128,7 @@ Item {
         link:      { size: () => Qt.size(link.desiredW, link.implicitHeight + 26 * s), ame: link },
         battery:   { size: () => Qt.size(batteryW, battery.implicitHeight + 26 * s), ame: battery },
         settings:  { size: () => Qt.size(settingsW, settings.implicitHeight + 29 * s), ame: settings },
+        keybinds:  { size: () => Qt.size(keybindsW, keybinds.implicitHeight + 29 * s), ame: keybinds },
         recorder:  { size: () => Qt.size(recorderW, recorder.implicitHeight + 33 * s), ame: recorder },
         sysmon:    { size: () => Qt.size(sysmonW, sysmon.implicitHeight + 33 * s), ame: sysmon }
     })
@@ -198,6 +201,26 @@ Item {
         settings.kbActivate();
         return true;
     }
+
+    /**
+     * Slide the open keybinds list's focused row by `dir` (+1 down, -1 up),
+     * carrying the soul seam. No-op unless the keybinds surface is open.
+     */
+    function keybindsMove(dir) {
+        if (pill.keybindsOpen)
+            keybinds.move(dir);
+    }
+
+    /**
+     * Enter on the open keybinds surface: arm chord capture on the focused row.
+     * No-op unless the keybinds surface is open.
+     */
+    function keybindsActivate() {
+        if (pill.keybindsOpen)
+            keybinds.activate();
+    }
+
+    readonly property bool keybindsListening: pill.keybindsOpen && keybinds.listening
 
     /**
      * A tile was picked in the standalone quick-record chooser. Screen with several
@@ -1146,6 +1169,15 @@ Item {
         id: settings
         s: pill.s
         open: pill.settingsOpen
+        morphCloseness: pill.morphCloseness
+        onRequestClose: pill.requestClose()
+        onRequestSurface: (name) => pill.requestSurface(name)
+    }
+
+    Keybinds {
+        id: keybinds
+        s: pill.s
+        open: pill.keybindsOpen
         morphCloseness: pill.morphCloseness
         onRequestClose: pill.requestClose()
     }
