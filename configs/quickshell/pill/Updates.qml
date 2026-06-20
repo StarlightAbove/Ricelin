@@ -32,8 +32,14 @@ SettingsSurface {
     property bool behind: false
     property bool updating: false
 
-    onActiveChanged: if (active)
-        verProc.running = true;
+    onActiveChanged: {
+        if (active) {
+            verProc.running = true;
+        } else {
+            focusRowItem = null;
+            kbIndex = -1;
+        }
+    }
 
     Process {
         id: verProc
