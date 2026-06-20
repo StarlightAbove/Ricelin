@@ -84,7 +84,6 @@ SettingsSurface {
             glyph: "字"
             title: "FONT"
             showBack: true
-            onBack: root.requestSurface("appearance")
         }
 
         Item { width: 1; height: 10 * root.s }

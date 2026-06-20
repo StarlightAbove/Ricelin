@@ -249,9 +249,12 @@ ShellRoot {
                         ScreenRec.quickChoosing = false;
                         ScreenRec.quickScreenChoosing = false;
                     } else if (overlay.surfaceOpen) {
-                        if (mouse.x < pillRegion.x || mouse.x > pillRegion.x + pillRegion.width
-                            || mouse.y < pillRegion.y || mouse.y > pillRegion.y + pillRegion.height)
+                        var inside = mouse.x >= pillRegion.x && mouse.x <= pillRegion.x + pillRegion.width
+                            && mouse.y >= pillRegion.y && mouse.y <= pillRegion.y + pillRegion.height;
+                        if (!inside)
                             root.close();
+                        else if (mouse.y <= pillRegion.y + 40 * pill.s)
+                            pill.surfaceBack();
                     } else {
                         pill.pinned = false;
                         root.peekMon = "";

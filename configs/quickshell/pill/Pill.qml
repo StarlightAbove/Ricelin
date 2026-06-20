@@ -290,6 +290,31 @@ Item {
     }
 
     /**
+     * Step the open surface back one level when its header bar is clicked: a
+     * settings sub-surface returns to the index, the font picker to appearance,
+     * a keybinds form to its list, and any other surface dismisses to the hover
+     * pill. Empty space in the body never triggers this.
+     */
+    function surfaceBack() {
+        if (pill.keybindsOpen) {
+            if (keybinds.formOpen)
+                keybinds.closeForm();
+            else
+                pill.requestSurface("settings");
+            return;
+        }
+        if (pill.fontpickerOpen) {
+            pill.requestSurface("appearance");
+            return;
+        }
+        if (pill.appearanceOpen || pill.recordingOpen || pill.updatesOpen || pill.displayOpen) {
+            pill.requestSurface("settings");
+            return;
+        }
+        pill.requestClose();
+    }
+
+    /**
      * Pop the open keybinds editor form back to the bind list. Returns true when a
      * form was open and dismissed, false otherwise so Escape closes the surface.
      */

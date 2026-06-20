@@ -132,7 +132,6 @@ SettingsSurface {
             glyph: "更"
             title: "UPDATES"
             showBack: true
-            onBack: root.requestSurface("settings")
         }
 
         Item { width: 1; height: 12 * root.s }

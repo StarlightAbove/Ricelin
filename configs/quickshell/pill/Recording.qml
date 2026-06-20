@@ -30,7 +30,6 @@ SettingsSurface {
             glyph: "録"
             title: "RECORDING"
             showBack: true
-            onBack: root.requestSurface("settings")
         }
 
         Item { width: 1; height: 12 * root.s }

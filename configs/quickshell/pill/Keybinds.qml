@@ -329,16 +329,6 @@ PillSurface {
             width: parent.width
             height: 22 * root.s
 
-            MouseArea {
-                anchors.fill: parent
-                anchors.topMargin: -6 * root.s
-                anchors.leftMargin: -8 * root.s
-                anchors.rightMargin: -8 * root.s
-                enabled: !root.listening
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.formOpen ? root.closeForm() : root.requestSurface("settings")
-            }
-
             Row {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter

@@ -35,7 +35,6 @@ SettingsSurface {
             glyph: "相"
             title: "APPEARANCE"
             showBack: true
-            onBack: root.requestSurface("settings")
         }
 
         Item { width: 1; height: 12 * root.s }

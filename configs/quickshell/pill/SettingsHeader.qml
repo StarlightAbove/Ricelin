@@ -4,9 +4,9 @@ import "Singletons"
 /**
  * Settings surface header: the surface kanji (gated by Flags.showGlyphs) and its
  * uppercase title on the left, with a cog at the index or a back chevron on a
- * sub-surface at the right. On a sub-surface the whole bar is the back target, so
- * a click anywhere on the title strip emits `back()`; clicks elsewhere on the
- * surface do nothing.
+ * sub-surface at the right. The header strip is the back target, but the click is
+ * handled at the pill level (a press anywhere on the top strip steps the surface
+ * back), so this is a pure visual.
  */
 Item {
     id: head
@@ -15,20 +15,9 @@ Item {
     property string glyph: ""
     property string title: ""
     property bool showBack: false
-    signal back()
 
     width: parent ? parent.width : 0
     height: 22 * head.s
-
-    MouseArea {
-        anchors.fill: parent
-        anchors.topMargin: -6 * head.s
-        anchors.leftMargin: -8 * head.s
-        anchors.rightMargin: -8 * head.s
-        enabled: head.showBack
-        cursorShape: Qt.PointingHandCursor
-        onClicked: head.back()
-    }
 
     Row {
         anchors.left: parent.left
