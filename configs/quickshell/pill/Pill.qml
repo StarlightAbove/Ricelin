@@ -44,6 +44,8 @@ Item {
     readonly property bool keybindsOpen: surface === "keybinds"
     readonly property bool recorderOpen: surface === "recorder"
     readonly property bool sysmonOpen: surface === "sysmon"
+    readonly property bool appearanceOpen: surface === "appearance"
+    readonly property bool recordingOpen: surface === "recording"
     readonly property bool hasMedia: Mpris.players.values.length > 0
 
     /**
@@ -100,6 +102,8 @@ Item {
     readonly property real keybindsW: 460 * s
     readonly property real recorderW: 384 * s
     readonly property real sysmonW: 392 * s
+    readonly property real appearanceW: 392 * s
+    readonly property real recordingW: 360 * s
     readonly property real toastW: 342 * s
     readonly property real quickChooseW: 344 * s
     readonly property real quickChooseH: 76 * s
@@ -130,7 +134,9 @@ Item {
         settings:  { size: () => Qt.size(settingsW, settings.implicitHeight + 29 * s), ame: settings },
         keybinds:  { size: () => Qt.size(keybindsW, keybinds.implicitHeight + 29 * s), ame: keybinds },
         recorder:  { size: () => Qt.size(recorderW, recorder.implicitHeight + 33 * s), ame: recorder },
-        sysmon:    { size: () => Qt.size(sysmonW, sysmon.implicitHeight + 33 * s), ame: sysmon }
+        sysmon:    { size: () => Qt.size(sysmonW, sysmon.implicitHeight + 33 * s), ame: sysmon },
+        appearance: { size: () => Qt.size(appearanceW, appearance.implicitHeight + 29 * s), ame: appearance },
+        recording:  { size: () => Qt.size(recordingW, recording.implicitHeight + 29 * s), ame: recording }
     })
 
     readonly property string mode: surfaceOpen && surfaces[surface] !== undefined ? surface
@@ -173,10 +179,21 @@ Item {
      * up), carrying the soul seam. Returns true when settings is open and
      * consumed the step.
      */
+    function rowNavSurface() {
+        if (pill.settingsOpen)
+            return settings;
+        if (pill.appearanceOpen)
+            return appearance;
+        if (pill.recordingOpen)
+            return recording;
+        return null;
+    }
+
     function settingsMove(dir) {
-        if (!pill.settingsOpen)
+        var nav = pill.rowNavSurface();
+        if (!nav)
             return false;
-        settings.kbMove(dir);
+        nav.kbMove(dir);
         return true;
     }
 
@@ -185,9 +202,10 @@ Item {
      * `dir`, a toggle is set on (dir > 0) or off. Returns true when consumed.
      */
     function settingsAdjust(dir) {
-        if (!pill.settingsOpen)
+        var nav = pill.rowNavSurface();
+        if (!nav)
             return false;
-        settings.kbAdjust(dir);
+        nav.kbAdjust(dir);
         return true;
     }
 
@@ -196,9 +214,10 @@ Item {
      * settings is open.
      */
     function settingsActivate() {
-        if (!pill.settingsOpen)
+        var nav = pill.rowNavSurface();
+        if (!nav)
             return false;
-        settings.kbActivate();
+        nav.kbActivate();
         return true;
     }
 
@@ -1180,6 +1199,7 @@ Item {
         open: pill.keybindsOpen
         morphCloseness: pill.morphCloseness
         onRequestClose: pill.requestClose()
+        onRequestSurface: (name) => pill.requestSurface(name)
     }
 
     Recorder {
@@ -1197,6 +1217,24 @@ Item {
         open: pill.sysmonOpen
         morphCloseness: pill.morphCloseness
         onRequestClose: pill.requestClose()
+    }
+
+    Appearance {
+        id: appearance
+        s: pill.s
+        open: pill.appearanceOpen
+        morphCloseness: pill.morphCloseness
+        onRequestClose: pill.requestClose()
+        onRequestSurface: (name) => pill.requestSurface(name)
+    }
+
+    Recording {
+        id: recording
+        s: pill.s
+        open: pill.recordingOpen
+        morphCloseness: pill.morphCloseness
+        onRequestClose: pill.requestClose()
+        onRequestSurface: (name) => pill.requestSurface(name)
     }
 
     Osd {

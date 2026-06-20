@@ -31,6 +31,8 @@ PillSurface {
 
     implicitHeight: content.implicitHeight
 
+    signal requestSurface(string name)
+
     readonly property string bindsPath: Quickshell.env("HOME") + "/.config/hypr/modules/binds.lua"
 
     property var binds: []
@@ -169,6 +171,12 @@ PillSurface {
             e.accepted = true;
             root.capture(e.key, e.modifiers);
         }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        enabled: !root.listening
+        onClicked: root.requestSurface("settings")
     }
 
     Column {
