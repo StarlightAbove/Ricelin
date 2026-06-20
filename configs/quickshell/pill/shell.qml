@@ -269,7 +269,7 @@ ShellRoot {
                     if (pill.quickChoosing) {
                         ScreenRec.quickChoosing = false;
                         ScreenRec.quickScreenChoosing = false;
-                    } else if (!pill.linkBack()) {
+                    } else if (!pill.linkBack() && !pill.keybindsBack()) {
                         root.close();
                     }
                 }

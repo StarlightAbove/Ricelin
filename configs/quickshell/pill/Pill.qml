@@ -284,6 +284,18 @@ Item {
     }
 
     /**
+     * Pop the open keybinds editor form back to the bind list. Returns true when a
+     * form was open and dismissed, false otherwise so Escape closes the surface.
+     */
+    function keybindsBack() {
+        if (pill.keybindsOpen && keybinds.formOpen) {
+            keybinds.closeForm();
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Slide the open wallpaper strip's focus by `dir` thumbs; +1 is right (older)
      * and -1 is left (newer). No-op unless the wallpaper surface is open.
      */
