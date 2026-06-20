@@ -1007,31 +1007,6 @@ Item {
                 }
 
                 Item {
-                    id: powerIcon
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 17 * pill.s
-                    height: 17 * pill.s
-
-                    GlyphIcon {
-                        anchors.fill: parent
-                        name: "shutdown"
-                        color: powerArea.containsMouse ? Theme.cream : Theme.iconDim
-                        stroke: 1.7
-                    }
-
-                    MouseArea {
-                        id: powerArea
-                        anchors.fill: parent
-                        anchors.margins: -6 * pill.s
-                        hoverEnabled: true
-                        enabled: hover.live
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: pill.requestSurface("power")
-                        onContainsMouseChanged: if (containsMouse) pill.soulTarget = "power"
-                    }
-                }
-
-                Item {
                     id: sysmonIcon
                     anchors.verticalCenter: parent.verticalCenter
                     width: 17 * pill.s
@@ -1131,6 +1106,31 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: pill.requestSurface("settings")
                         onContainsMouseChanged: if (containsMouse) pill.soulTarget = "settings"
+                    }
+                }
+
+                Item {
+                    id: powerIcon
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 17 * pill.s
+                    height: 17 * pill.s
+
+                    GlyphIcon {
+                        anchors.fill: parent
+                        name: "shutdown"
+                        color: powerArea.containsMouse ? Theme.cream : Theme.iconDim
+                        stroke: 1.7
+                    }
+
+                    MouseArea {
+                        id: powerArea
+                        anchors.fill: parent
+                        anchors.margins: -6 * pill.s
+                        hoverEnabled: true
+                        enabled: hover.live
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: pill.requestSurface("power")
+                        onContainsMouseChanged: if (containsMouse) pill.soulTarget = "power"
                     }
                 }
             }
