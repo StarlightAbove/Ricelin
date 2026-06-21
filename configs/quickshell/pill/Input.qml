@@ -35,6 +35,10 @@ SettingsSurface {
     property var cursorThemes: []
     property bool themeOpen: false
 
+    property string inputText: ""
+    property string envText: ""
+    property string autostartText: ""
+
     readonly property var accelOptions: [
         { label: "Flat", value: "flat" },
         { label: "Adaptive", value: "adaptive" }
@@ -60,13 +64,17 @@ SettingsSurface {
      * leaves a control blank.
      */
     function seed() {
-        var inp = inputFile.text();
+        root.inputText = inputFile.text();
+        root.envText = envFile.text();
+        root.autostartText = autostartFile.text();
+
+        var inp = root.inputText;
         var sens = parseFloat(SetInput.getField(inp, "sensitivity"));
         root.sensitivity = isNaN(sens) ? 0 : sens;
         var ap = SetInput.getField(inp, "accel_profile");
         root.accelProfile = ap.length > 0 ? ap : "flat";
 
-        var env = envFile.text();
+        var env = root.envText;
         var cs = parseInt(SetInput.getField(env, "XCURSOR_SIZE"), 10);
         root.cursorSize = isNaN(cs) ? 24 : cs;
         var ct = SetInput.getField(env, "XCURSOR_THEME");
@@ -78,9 +86,10 @@ SettingsSurface {
      * and reloads Hyprland so the change takes effect at once.
      */
     function writeInputField(name, literal) {
-        var res = SetInput.setField(inputFile.text(), name, literal);
+        var res = SetInput.setField(root.inputText, name, literal);
         if (!res.ok)
             return;
+        root.inputText = res.text;
         inputWriter.setText(res.text);
         reloadProc.running = true;
     }
@@ -95,16 +104,20 @@ SettingsSurface {
         setcursorProc.size = size;
         setcursorProc.running = true;
 
-        var env = envFile.text();
+        var env = root.envText;
         var e1 = SetInput.setEnv(env, "XCURSOR_THEME", theme);
         var e2 = SetInput.setEnv(e1.ok ? e1.text : env, "XCURSOR_SIZE", String(size));
         var e3 = SetInput.setEnv(e2.ok ? e2.text : (e1.ok ? e1.text : env), "HYPRCURSOR_SIZE", String(size));
-        if (e3.ok || e2.ok || e1.ok)
-            envWriter.setText(e3.ok ? e3.text : (e2.ok ? e2.text : e1.text));
+        if (e3.ok || e2.ok || e1.ok) {
+            root.envText = e3.ok ? e3.text : (e2.ok ? e2.text : e1.text);
+            envWriter.setText(root.envText);
+        }
 
-        var auto = SetInput.setCursorLine(autostartFile.text(), theme, size);
-        if (auto.ok)
+        var auto = SetInput.setCursorLine(root.autostartText, theme, size);
+        if (auto.ok) {
+            root.autostartText = auto.text;
             autostartWriter.setText(auto.text);
+        }
     }
 
     function clampSensitivity(v) {

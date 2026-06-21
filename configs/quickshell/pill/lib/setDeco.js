@@ -87,3 +87,77 @@ function setBlockField(text, blockName, name, valueLiteral) {
 function escapeRe(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+/**
+ * Finds the bounds of the `hl.layer_rule({ ... })` call whose body carries
+ * `name = "ruleName"`. Walks each `hl.layer_rule(` head, brace-balances to its
+ * matching `})`, and returns `{ start, end }` (from the head to just past the
+ * close) for the first call that names `ruleName`. Returns null when no such
+ * call exists.
+ */
+function findNamedRule(text, ruleName) {
+    var head = /hl\.layer_rule\s*\(\s*\{/g;
+    var nameRe = new RegExp("name\\s*=\\s*\"" + escapeRe(ruleName) + "\"");
+    var m;
+    while ((m = head.exec(text)) !== null) {
+        var open = text.indexOf("{", m.index);
+        var depth = 0;
+        for (var i = open; i < text.length; i++) {
+            var c = text.charAt(i);
+            if (c === "{") {
+                depth++;
+            } else if (c === "}") {
+                depth--;
+                if (depth === 0) {
+                    var close = text.indexOf(")", i);
+                    if (close === -1)
+                        close = i;
+                    var end = close + 1;
+                    if (nameRe.test(text.slice(m.index, end)))
+                        return { start: m.index, end: end };
+                    break;
+                }
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Reports whether an `hl.layer_rule` call named `ruleName` is present.
+ */
+function hasNamedRule(text, ruleName) {
+    return findNamedRule(text, ruleName) !== null;
+}
+
+/**
+ * Removes the whole `hl.layer_rule({ ... })` call named `ruleName`, together
+ * with one trailing newline and the single blank line `addNamedRule` puts in
+ * front of an appended rule, leaving the rest of the file byte-identical.
+ * Returns `{ text, ok }`; ok is false (text unchanged) when no such rule exists.
+ */
+function removeNamedRule(text, ruleName) {
+    var r = findNamedRule(text, ruleName);
+    if (!r)
+        return { text: text, ok: false };
+    var start = r.start;
+    if (text.charAt(start - 1) === "\n" && text.charAt(start - 2) === "\n")
+        start--;
+    var end = r.end;
+    if (text.charAt(end) === "\n")
+        end++;
+    return { text: text.slice(0, start) + text.slice(end), ok: true };
+}
+
+/**
+ * Appends `block` (a complete `hl.layer_rule({...})` string) at the end of the
+ * file, separated by a blank line, unless that exact block is already present.
+ * Returns `{ text, ok }`; ok is false (text unchanged) when the block already
+ * exists.
+ */
+function addNamedRule(text, block) {
+    if (text.indexOf(block) !== -1)
+        return { text: text, ok: false };
+    var sep = text.length === 0 || text.charAt(text.length - 1) === "\n" ? "\n" : "\n\n";
+    return { text: text + sep + block, ok: true };
+}

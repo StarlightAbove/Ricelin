@@ -24,6 +24,7 @@ SettingsSurface {
     rows: []
 
     readonly property string decoPath: Quickshell.env("HOME") + "/.config/hypr/modules/decoration.lua"
+    readonly property string pillBlurRule: 'hl.layer_rule({ name = "pill-blur", match = { namespace = "pill" }, blur = true, ignore_alpha = 0.05 })\n'
 
     property int gapsIn: 6
     property int gapsOut: 12
@@ -34,6 +35,8 @@ SettingsSurface {
     property int blurPasses: 3
     property real activeOpacity: 1.0
     property real inactiveOpacity: 1.0
+
+    property string decoText: ""
 
     onActiveChanged: {
         if (active) {
@@ -52,7 +55,8 @@ SettingsSurface {
      * field name shared with the `shadow` block resolves correctly.
      */
     function seed() {
-        var t = decoFile.text();
+        root.decoText = decoFile.text();
+        var t = root.decoText;
 
         var gi = parseInt(SetDeco.getField(t, "gaps_in"), 10);
         root.gapsIn = isNaN(gi) ? 6 : gi;
@@ -73,6 +77,8 @@ SettingsSurface {
         root.activeOpacity = isNaN(ao) ? 1.0 : ao;
         var io = parseFloat(SetDeco.getField(t, "inactive_opacity"));
         root.inactiveOpacity = isNaN(io) ? 1.0 : io;
+
+        Flags.pillBlur = SetDeco.hasNamedRule(t, "pill-blur");
     }
 
     /**
@@ -80,9 +86,10 @@ SettingsSurface {
      * by the caller) and reloads Hyprland so the change takes effect at once.
      */
     function writeDeco(name, literal) {
-        var res = SetDeco.setField(decoFile.text(), name, literal);
+        var res = SetDeco.setField(root.decoText, name, literal);
         if (!res.ok)
             return;
+        root.decoText = res.text;
         decoWriter.setText(res.text);
         reloadProc.running = true;
     }
@@ -93,9 +100,33 @@ SettingsSurface {
      * `shadow` block's `enabled` first.
      */
     function writeBlur(name, literal) {
-        var res = SetDeco.setBlockField(decoFile.text(), "blur", name, literal);
+        var res = SetDeco.setBlockField(root.decoText, "blur", name, literal);
         if (!res.ok)
             return;
+        root.decoText = res.text;
+        decoWriter.setText(res.text);
+        reloadProc.running = true;
+    }
+
+    /**
+     * Adds or removes the pill-blur layer_rule in decoration.lua and reloads
+     * Hyprland so the frosted-glass effect behind the pill turns on or off at
+     * once. The rule lives in the Lua source (the live config parser rejects a
+     * runtime `layerrule` keyword), so it has to be written, not pushed.
+     */
+    function applyPillBlur(on) {
+        var t = root.decoText;
+        var res;
+        if (on) {
+            if (SetDeco.hasNamedRule(t, "pill-blur"))
+                return;
+            res = SetDeco.addNamedRule(t, root.pillBlurRule);
+        } else {
+            res = SetDeco.removeNamedRule(t, "pill-blur");
+        }
+        if (!res.ok)
+            return;
+        root.decoText = res.text;
         decoWriter.setText(res.text);
         reloadProc.running = true;
     }
@@ -419,6 +450,37 @@ SettingsSurface {
                             return;
                         root.inactiveOpacity = next;
                         root.writeDeco("inactive_opacity", next.toFixed(2));
+                    }
+                }
+            }
+
+            GroupLabel { text: "Pill" }
+
+            FieldRow {
+                label: "Pill opacity"
+                caption: "How see-through the pill sits"
+                Stepper {
+                    value: Flags.pillOpacity
+                    display: Flags.pillOpacity.toFixed(2)
+                    onStepped: (dir) => {
+                        var next = Math.max(0.5, Math.min(1.0, Math.round((Flags.pillOpacity + dir * 0.05) * 100) / 100));
+                        if (next === Flags.pillOpacity)
+                            return;
+                        Flags.pillOpacity = next;
+                    }
+                }
+            }
+
+            FieldRow {
+                label: "Pill blur"
+                caption: "Frosts what is behind the pill. Needs opacity below 100%."
+                height: 42 * root.s
+                LinkToggle {
+                    s: root.s
+                    on: Flags.pillBlur
+                    onToggled: {
+                        Flags.pillBlur = !Flags.pillBlur;
+                        root.applyPillBlur(Flags.pillBlur);
                     }
                 }
             }
