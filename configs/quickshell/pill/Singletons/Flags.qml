@@ -23,6 +23,7 @@ Singleton {
     property alias reduceMotion: adapter.reduceMotion
     property alias manualHue: adapter.manualHue
     property alias manualDark: adapter.manualDark
+    property alias manualSat: adapter.manualSat
     property alias uiFont: adapter.uiFont
     property alias recordCountdown: adapter.recordCountdown
     property alias recordDir: adapter.recordDir
@@ -59,6 +60,7 @@ Singleton {
             property bool reduceMotion: false
             property int manualHue: 30
             property bool manualDark: true
+            property real manualSat: 0.5
             property string uiFont: ""
             property int recordCountdown: 5
             property string recordDir: ""

@@ -84,7 +84,8 @@ def main():
     if sys.argv[1] == "--hue":
         hue = (float(sys.argv[2]) % 360) / 360.0
         mode = sys.argv[3] if len(sys.argv) > 3 else "dark"
-        sat = 0.5
+        sat = float(sys.argv[4]) if len(sys.argv) > 4 else 0.5
+        sat = max(0.0, min(1.0, sat))
         mean_l = 0.85 if mode == "light" else 0.12
         chromatic = True
     else:
