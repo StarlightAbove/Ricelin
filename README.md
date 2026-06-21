@@ -16,7 +16,7 @@ Everything you see is hand-written Quickshell. One pill bar that morphs into wha
 
 ![The pill surfaces](assets/shell.png)
 
-The pill becomes media and now playing, a calendar, the wallpaper picker, clipboard history, an audio and brightness mixer, and network and bluetooth controls. There is also an app launcher, a lock screen, and rishot, my own screenshot and annotation tool.
+The pill becomes media and now playing, a calendar, the wallpaper picker, clipboard history, an audio and brightness mixer, and network and bluetooth controls. There is also an app launcher, a lock screen, and [rishot](https://github.com/Gakuseei/rishot), my own screenshot and annotation tool, which lives in its own repo so you can read all of it there.
 
 ## Stack
 
