@@ -48,6 +48,7 @@ Item {
     readonly property bool updatesOpen: surface === "updates"
     readonly property bool displayOpen: surface === "display"
     readonly property bool inputOpen: surface === "input"
+    readonly property bool lookOpen: surface === "look"
     readonly property bool fontpickerOpen: surface === "fontpicker"
     readonly property bool settingsLike: settingsOpen || appearanceOpen || updatesOpen
     readonly property bool hasMedia: Mpris.players.values.length > 0
@@ -110,6 +111,7 @@ Item {
     readonly property real updatesW: 360 * s
     readonly property real displayW: 392 * s
     readonly property real inputW: 392 * s
+    readonly property real lookW: 392 * s
     readonly property real fontpickerW: 360 * s
     readonly property real toastW: 342 * s
     readonly property real quickChooseW: 344 * s
@@ -146,6 +148,7 @@ Item {
         updates:    { size: () => Qt.size(updatesW, updates.implicitHeight + 29 * s), ame: updates },
         display:    { size: () => Qt.size(displayW, display.implicitHeight + 29 * s), ame: display },
         input:      { size: () => Qt.size(inputW, input.implicitHeight + 29 * s), ame: input },
+        look:       { size: () => Qt.size(lookW, look.implicitHeight + 29 * s), ame: look },
         fontpicker: { size: () => Qt.size(fontpickerW, fontpicker.implicitHeight + 29 * s), ame: fontpicker }
     })
 
@@ -305,7 +308,7 @@ Item {
             pill.requestSurface("appearance");
             return;
         }
-        if (pill.appearanceOpen || pill.updatesOpen || pill.displayOpen || pill.inputOpen) {
+        if (pill.appearanceOpen || pill.updatesOpen || pill.displayOpen || pill.inputOpen || pill.lookOpen) {
             pill.requestSurface("settings");
             return;
         }
@@ -1301,6 +1304,15 @@ Item {
         id: input
         s: pill.s
         open: pill.inputOpen
+        morphCloseness: pill.morphCloseness
+        onRequestClose: pill.requestClose()
+        onRequestSurface: (name) => pill.requestSurface(name)
+    }
+
+    Look {
+        id: look
+        s: pill.s
+        open: pill.lookOpen
         morphCloseness: pill.morphCloseness
         onRequestClose: pill.requestClose()
         onRequestSurface: (name) => pill.requestSurface(name)

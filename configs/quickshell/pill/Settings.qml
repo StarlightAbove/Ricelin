@@ -17,6 +17,7 @@ SettingsSurface {
 
     rows: [
         { item: appearanceRow, kind: "nav", surface: "appearance" },
+        { item: lookRow, kind: "nav", surface: "look" },
         { item: displayRow, kind: "nav", surface: "display" },
         { item: inputRow, kind: "nav", surface: "input" },
         { item: keybindsRow, kind: "nav", surface: "keybinds" },
@@ -61,6 +62,22 @@ SettingsSurface {
                 height: 16 * root.s
                 name: "chevron-right"
                 color: root.focusRowItem === appearanceRow ? Theme.cream : Theme.iconDim
+                stroke: 2.2
+            }
+        }
+
+        SettingsRow {
+            id: lookRow
+            surface: root
+            glyph: "飾"
+            name: "Look"
+            sub: "Gaps, rounding, blur, opacity"
+
+            GlyphIcon {
+                width: 16 * root.s
+                height: 16 * root.s
+                name: "chevron-right"
+                color: root.focusRowItem === lookRow ? Theme.cream : Theme.iconDim
                 stroke: 2.2
             }
         }
