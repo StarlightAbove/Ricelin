@@ -21,6 +21,7 @@ SettingsSurface {
         { item: displayRow, kind: "nav", surface: "display" },
         { item: inputRow, kind: "nav", surface: "input" },
         { item: keybindsRow, kind: "nav", surface: "keybinds" },
+        { item: idleRow, kind: "nav", surface: "idlelock" },
         { item: updatesRow, kind: "nav", surface: "updates" }
     ]
 
@@ -139,6 +140,22 @@ SettingsSurface {
                 height: 16 * root.s
                 name: "chevron-right"
                 color: root.focusRowItem === keybindsRow ? Theme.cream : Theme.iconDim
+                stroke: 2.2
+            }
+        }
+
+        SettingsRow {
+            id: idleRow
+            surface: root
+            glyph: "錠"
+            name: "Idle / Lock"
+            sub: "Auto-lock, screen off, suspend"
+
+            GlyphIcon {
+                width: 16 * root.s
+                height: 16 * root.s
+                name: "chevron-right"
+                color: root.focusRowItem === idleRow ? Theme.cream : Theme.iconDim
                 stroke: 2.2
             }
         }

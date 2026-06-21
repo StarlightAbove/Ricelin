@@ -35,6 +35,9 @@ Singleton {
     property alias recordMic: adapter.recordMic
     property alias recordDesktop: adapter.recordDesktop
     property alias recordClearedBefore: adapter.recordClearedBefore
+    property alias idleLockMin: adapter.idleLockMin
+    property alias idleScreenOffMin: adapter.idleScreenOffMin
+    property alias idleSuspendMin: adapter.idleSuspendMin
 
     FileView {
         id: file
@@ -74,6 +77,9 @@ Singleton {
             property bool recordMic: true
             property bool recordDesktop: true
             property real recordClearedBefore: 0
+            property int idleLockMin: 5
+            property int idleScreenOffMin: 6
+            property int idleSuspendMin: 0
         }
     }
 }
