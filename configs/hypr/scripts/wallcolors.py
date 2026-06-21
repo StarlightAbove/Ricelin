@@ -87,7 +87,7 @@ def main():
         sat = float(sys.argv[4]) if len(sys.argv) > 4 else 0.5
         sat = max(0.0, min(1.0, sat))
         mean_l = 0.85 if mode == "light" else 0.12
-        chromatic = True
+        chromatic = sat > 0.02
     else:
         wallpaper = sys.argv[1]
         if not Path(wallpaper).is_file():

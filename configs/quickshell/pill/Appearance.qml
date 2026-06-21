@@ -327,8 +327,10 @@ SettingsSurface {
                                 if (c.hslHue >= 0) {
                                     Flags.manualHue = Math.round(c.hslHue * 359);
                                     Flags.manualSat = c.hslSaturation;
-                                    root.applyManual();
+                                } else {
+                                    Flags.manualSat = 0;
                                 }
+                                root.applyManual();
                             }
                             text = "";
                             focus = false;
