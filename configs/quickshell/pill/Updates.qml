@@ -175,45 +175,39 @@ SettingsSurface {
     Process {
         id: checkProc
         command: ["python3", root.engine, "check"]
-        property string out: ""
         stdout: StdioCollector {
-            onStreamFinished: checkProc.out = this.text
-        }
-        onExited: {
-            root.checking = false;
-            try {
-                root.ingest(JSON.parse(checkProc.out));
-            } catch (e) {
-                root.status = "error";
-                root.errorText = "The updater returned something unexpected.";
+            onStreamFinished: {
+                root.checking = false;
+                try {
+                    root.ingest(JSON.parse(this.text));
+                } catch (e) {
+                    root.status = "error";
+                    root.errorText = "The updater returned something unexpected.";
+                }
             }
-            checkProc.out = "";
         }
     }
 
     Process {
         id: applyProc
         property string takeArg: ""
-        property string out: ""
         command: takeArg.length > 0
             ? ["python3", root.engine, "apply", "--take", takeArg]
             : ["python3", root.engine, "apply"]
         stdout: StdioCollector {
-            onStreamFinished: applyProc.out = this.text
-        }
-        onExited: {
-            root.applying = false;
-            try {
-                root.ingest(JSON.parse(applyProc.out));
-            } catch (e) {
-                root.resetResult();
-                root.status = "error";
-                root.errorText = "The updater returned something unexpected.";
-            }
-            applyProc.out = "";
-            if (root.restartNeeded) {
-                root.clearPending();
-                restartTimer.start();
+            onStreamFinished: {
+                root.applying = false;
+                try {
+                    root.ingest(JSON.parse(this.text));
+                } catch (e) {
+                    root.resetResult();
+                    root.status = "error";
+                    root.errorText = "The updater returned something unexpected.";
+                }
+                if (root.restartNeeded) {
+                    root.clearPending();
+                    restartTimer.start();
+                }
             }
         }
     }
