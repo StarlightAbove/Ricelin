@@ -245,42 +245,113 @@ SettingsSurface {
         font.letterSpacing: 1.2 * root.s
     }
 
+    /**
+     * Collapsible settings group: a tappable header (the group label plus a
+     * chevron) over a body of rows that animates between zero and its content
+     * height, so a long tab shows only the group headers until one is opened.
+     * `open` is the initial state; tapping the header toggles it.
+     */
+    component Group: Column {
+        id: grp
+        property string title: ""
+        property bool open: false
+        default property alias rows: body.data
+
+        width: parent ? parent.width : 0
+        spacing: 0
+
+        Item {
+            width: parent.width
+            height: gl.implicitHeight
+
+            GroupLabel { id: gl; text: grp.title }
+
+            GlyphIcon {
+                anchors.right: parent.right
+                anchors.verticalCenter: gl.verticalCenter
+                width: 15 * root.s
+                height: 15 * root.s
+                name: "chevron-down"
+                color: Theme.faint
+                stroke: 2.0
+                rotation: grp.open ? 0 : -90
+                Behavior on rotation { NumberAnimation { duration: Motion.fast; easing.type: Easing.OutCubic } }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: grp.open = !grp.open
+            }
+        }
+
+        Item {
+            width: parent.width
+            height: grp.open ? body.implicitHeight : 0
+            clip: true
+            Behavior on height { NumberAnimation { duration: Motion.fast; easing.type: Easing.OutCubic } }
+
+            Column {
+                id: body
+                width: parent.width
+            }
+        }
+    }
+
+    /**
+     * One settings line. At rest it is a single label + control row; hovering the
+     * row folds its grey caption open below the label so a long tab stays compact
+     * by default. `collapsed` drops the whole row to zero height with the same
+     * height animation, used by the blur and shadow rows that depend on a toggle.
+     * The label and control are pinned to the top line so only the caption space
+     * grows; nothing above it shifts.
+     */
     component FieldRow: Item {
         id: frow
         property string label: ""
         property string caption: ""
+        property bool collapsed: false
         default property alias control: ctrl.data
 
+        readonly property bool expanded: !frow.collapsed && fhover.hovered
+        readonly property real rowH: 30 * root.s
+        readonly property real capH: 14 * root.s
+
         width: parent ? parent.width : 0
-        height: 34 * root.s
+        height: frow.collapsed ? 0 : (frow.rowH + (frow.expanded ? frow.capH : 0))
+        clip: true
+        Behavior on height { NumberAnimation { duration: Motion.fast; easing.type: Easing.OutCubic } }
 
-        Column {
+        HoverHandler { id: fhover }
+
+        Text {
+            id: labelT
             anchors.left: parent.left
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 1 * root.s
+            anchors.top: parent.top
+            anchors.topMargin: 8 * root.s
+            text: frow.label
+            color: Theme.cream
+            font.family: Theme.font
+            font.pixelSize: 12.5 * root.s
+            font.weight: Font.Medium
+        }
 
-            Text {
-                text: frow.label
-                color: Theme.cream
-                font.family: Theme.font
-                font.pixelSize: 12.5 * root.s
-                font.weight: Font.Medium
-            }
-
-            Text {
-                visible: frow.caption.length > 0
-                text: frow.caption
-                color: Theme.faint
-                font.family: Theme.font
-                font.pixelSize: 9 * root.s
-                font.weight: Font.Medium
-            }
+        Text {
+            anchors.left: parent.left
+            anchors.top: labelT.bottom
+            anchors.topMargin: 2 * root.s
+            visible: frow.expanded && frow.caption.length > 0
+            text: frow.caption
+            color: Theme.faint
+            font.family: Theme.font
+            font.pixelSize: 9 * root.s
+            font.weight: Font.Medium
         }
 
         Item {
             id: ctrl
             anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenter: labelT.verticalCenter
             width: childrenRect.width
             height: childrenRect.height
         }
@@ -310,7 +381,7 @@ SettingsSurface {
             anchors.rightMargin: 12 * root.s
             spacing: 0
 
-            GroupLabel { text: "Window" }
+            Group { title: "Window"; open: true
 
             FieldRow {
                 label: "Gaps inner"
@@ -414,7 +485,9 @@ SettingsSurface {
                 }
             }
 
-            GroupLabel { text: "Shadow" }
+            }
+
+            Group { title: "Shadow"
 
             FieldRow {
                 label: "Enabled"
@@ -432,8 +505,7 @@ SettingsSurface {
             FieldRow {
                 label: "Range"
                 caption: "How far the shadow spreads"
-                visible: root.shadowOn
-                height: root.shadowOn ? 34 * root.s : 0
+                collapsed: !root.shadowOn
                 ScrubValue {
                     s: root.s
                     value: root.shadowRange
@@ -449,8 +521,7 @@ SettingsSurface {
             FieldRow {
                 label: "Render power"
                 caption: "Shadow falloff sharpness"
-                visible: root.shadowOn
-                height: root.shadowOn ? 34 * root.s : 0
+                collapsed: !root.shadowOn
                 ScrubValue {
                     s: root.s
                     value: root.shadowRenderPower
@@ -463,7 +534,9 @@ SettingsSurface {
                 }
             }
 
-            GroupLabel { text: "Blur" }
+            }
+
+            Group { title: "Blur"
 
             FieldRow {
                 label: "Enabled"
@@ -481,8 +554,7 @@ SettingsSurface {
             FieldRow {
                 label: "Strength"
                 caption: "Blur radius"
-                visible: root.blurOn
-                height: root.blurOn ? 34 * root.s : 0
+                collapsed: !root.blurOn
                 ScrubValue {
                     s: root.s
                     value: root.blurSize
@@ -498,8 +570,7 @@ SettingsSurface {
             FieldRow {
                 label: "Passes"
                 caption: "More passes, smoother blur"
-                visible: root.blurOn
-                height: root.blurOn ? 34 * root.s : 0
+                collapsed: !root.blurOn
                 ScrubValue {
                     s: root.s
                     value: root.blurPasses
@@ -515,8 +586,7 @@ SettingsSurface {
             FieldRow {
                 label: "Vibrancy"
                 caption: "Color saturation behind the blur"
-                visible: root.blurOn
-                height: root.blurOn ? 34 * root.s : 0
+                collapsed: !root.blurOn
                 ScrubValue {
                     s: root.s
                     value: root.blurVibrancy
@@ -532,8 +602,7 @@ SettingsSurface {
             FieldRow {
                 label: "Noise"
                 caption: "Grain mixed into the blur"
-                visible: root.blurOn
-                height: root.blurOn ? 34 * root.s : 0
+                collapsed: !root.blurOn
                 ScrubValue {
                     s: root.s
                     value: root.blurNoise
@@ -546,7 +615,9 @@ SettingsSurface {
                 }
             }
 
-            GroupLabel { text: "Opacity" }
+            }
+
+            Group { title: "Opacity"
 
             FieldRow {
                 label: "Active window"
@@ -578,7 +649,9 @@ SettingsSurface {
                 }
             }
 
-            GroupLabel { text: "Pill" }
+            }
+
+            Group { title: "Pill"
 
             FieldRow {
                 label: "Pill opacity"
@@ -595,7 +668,6 @@ SettingsSurface {
             FieldRow {
                 label: "Pill blur"
                 caption: "Frosts what is behind the pill. Needs opacity below 100%."
-                height: 42 * root.s
                 LinkToggle {
                     s: root.s
                     on: Flags.pillBlur
@@ -604,6 +676,8 @@ SettingsSurface {
                         root.applyPillBlur(Flags.pillBlur);
                     }
                 }
+            }
+
             }
 
             Item { width: 1; height: 10 * root.s }
