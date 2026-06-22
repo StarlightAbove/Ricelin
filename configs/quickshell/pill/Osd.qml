@@ -12,6 +12,7 @@ Item {
     property real s: 1
     property string screenName: ""
     property bool suppressed: false
+    property bool expanded: false
     property bool flashing: false
     property string kind: "volume"
     property bool armed: false
@@ -58,7 +59,9 @@ Item {
      * Active workspace name on this monitor. Any switch (Super+arrow,
      * Super+wheel, clicking a dot) changes it, so flashing the workspace OSD
      * here briefly morphs the pill open to show where you landed. The arm timer
-     * swallows the initial populate, so login doesn't flash.
+     * swallows the initial populate, so login doesn't flash. Skipped while the
+     * pill is expanded: the hover/surface pill already shows the live dots with
+     * the active one marked, so the OSD would only be a redundant morph.
      */
     readonly property string activeWsName: {
         var mons = Hyprland.monitors.values;
@@ -67,7 +70,7 @@ Item {
                 return mons[i].activeWorkspace ? mons[i].activeWorkspace.name : "";
         return "";
     }
-    onActiveWsNameChanged: if (activeWsName.length > 0) flash("workspace");
+    onActiveWsNameChanged: if (activeWsName.length > 0 && !expanded) flash("workspace");
 
     function trackEvent() {
         var line = trackLine;

@@ -1384,6 +1384,7 @@ Item {
         s: pill.s
         screenName: pill.screenName
         suppressed: pill.surfaceOpen || pill.held
+        expanded: pill.expanded
         enabled: pill.mode === "osd"
         opacity: pill.mode === "osd" ? 1 : 0
         visible: opacity > 0.01
