@@ -1,21 +1,25 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import "Singletons"
 
 /**
- * 更 UPDATES sub-surface: reads the installed commit, checks origin/main for newer
- * work and fast-forwards in place, all without a terminal. The live config dir is a
- * symlink into the Ricelin clone, so every git op targets the real repo through
- * `git -C` and the commit short-SHA stands in for a version. Reached from the
- * settings index and morphs back to it on an empty click or the back chevron.
+ * 更 UPDATES sub-surface: a terminal-free face for the Ricelin update engine. It
+ * never touches git itself; it shells out to the python engine at
+ * ~/.config/hypr/scripts/ricelin-update.py, which prints one JSON object, and
+ * renders that. `check` is a safe dry-run that reports how far behind the install
+ * is, the changelog, and any protected file whose local edits clash with upstream;
+ * `apply` performs the update, taking upstream wholesale only for the conflicting
+ * files the user explicitly opted to overwrite.
  *
- * The check fetches origin/main and compares local HEAD against FETCH_HEAD by SHA:
- * an inequality means an update is available and reveals the update button, while
- * the behind-count is only a hint (a shallow clone can report zero). Updating runs
- * a plain `pull --ff-only` that fails safely on a dirty tree or conflict; nothing
- * here ever discards or resets, since this is a live machine.
+ * The engine owns every policy decision (devmode detection, on-demand cloning,
+ * three-way merges); this surface is a thin reader of its contract. On a dev or
+ * symlinked-worktree install the engine answers "devmode" and the surface shows a
+ * calm note that updates run through plain git instead, with no buttons. Reached
+ * from the settings index and morphs back to it on an empty click or the back
+ * chevron.
  */
 SettingsSurface {
     id: root
@@ -24,131 +28,192 @@ SettingsSurface {
     implicitHeight: content.implicitHeight
     rows: []
 
-    readonly property string repoDir: "$HOME/.config/quickshell"
+    readonly property string engine: Quickshell.env("HOME") + "/.config/hypr/scripts/ricelin-update.py"
 
-    property string version: ""
     property string status: ""
-    property bool checking: false
-    property bool behind: false
-    property bool updating: false
-    property bool checked: false
+    property string version: ""
     property int behindCount: 0
+    property string fromDate: ""
+    property string toDate: ""
+    property var changelog: []
+    property var conflicts: []
+    property string errorText: ""
 
-    readonly property string statusKind: updating ? "updating"
+    property bool checking: false
+    property bool applying: false
+    property bool restartNeeded: false
+
+    /** Conflicting rel-paths the user chose to overwrite with upstream on the next apply. */
+    property var takePaths: ({})
+
+    readonly property bool busy: checking || applying
+    readonly property bool behind: status === "ok" && behindCount > 0
+    readonly property bool upToDate: status === "ok" && behindCount === 0
+
+    /** rel-path -> human label for the protected files the engine can three-way merge. */
+    readonly property var friendlyName: ({
+        "hypr/modules/binds.lua": "Keybinds",
+        "hypr/modules/decoration.lua": "Look",
+        "hypr/modules/monitors.lua": "Display",
+        "hypr/modules/input.lua": "Input",
+        "hypr/modules/env.lua": "Environment",
+        "hypr/modules/autostart.lua": "Autostart",
+        "hypr/modules/animations.lua": "Animations",
+        "hypr/hypridle.conf": "Idle & Lock"
+    })
+
+    function labelFor(rel) {
+        return friendlyName[rel] !== undefined ? friendlyName[rel] : rel;
+    }
+
+    readonly property string statusKind: applying ? "applying"
         : checking ? "checking"
+        : restartNeeded ? "applied"
+        : status === "devmode" ? "devmode"
+        : status === "offline" ? "offline"
+        : status === "noclone" ? "noclone"
+        : status === "error" ? "error"
         : behind ? "behind"
-        : status.indexOf("updated") === 0 ? "updated"
-        : status.indexOf("failed") >= 0 ? "fail"
-        : checked ? "ok"
+        : upToDate ? "ok"
         : "idle"
 
-    readonly property bool spinning: checking || updating
+    readonly property bool spinning: checking || applying
 
     readonly property string badgeIcon: statusKind === "behind" ? "arrow-up"
-        : statusKind === "fail" ? "close"
+        : statusKind === "error" || statusKind === "offline" ? "close"
+        : statusKind === "devmode" ? "bolt"
+        : statusKind === "noclone" ? "download"
         : "check"
 
-    readonly property color badgeTint: statusKind === "fail" ? Theme.dim
-        : (statusKind === "checking" || statusKind === "updating" || statusKind === "idle") ? Theme.subtle
+    readonly property color badgeTint: statusKind === "error" || statusKind === "offline" ? Theme.dim
+        : statusKind === "checking" || statusKind === "applying" || statusKind === "idle" || statusKind === "noclone" ? Theme.subtle
         : Theme.vermLit
 
-    readonly property string headline: statusKind === "updating" ? "Updating…"
+    readonly property string headline: statusKind === "applying" ? "Updating…"
         : statusKind === "checking" ? "Checking…"
+        : statusKind === "applied" ? "Updated"
+        : statusKind === "devmode" ? "Developer install"
+        : statusKind === "offline" ? "Couldn't reach the server"
+        : statusKind === "noclone" ? "Ready to set up"
+        : statusKind === "error" ? "Check failed"
         : statusKind === "behind" ? (behindCount + " update" + (behindCount === 1 ? "" : "s") + " available")
-        : statusKind === "updated" ? "Updated"
-        : statusKind === "fail" ? "Check failed"
         : statusKind === "ok" ? "Up to date"
-        : "Installed"
+        : "Updates"
+
+    /** A line beneath the headline that orients each state, dropped when empty. */
+    readonly property string subline: statusKind === "devmode" ? "This is a clone or symlinked work-tree, so updates run through plain git. In-app updating is off here."
+        : statusKind === "noclone" ? "The rice copy didn't land yet. Check for updates to fetch it, then updates show up here."
+        : statusKind === "error" ? errorText
+        : statusKind === "behind" ? (fromDate.length > 0 ? fromDate + " → " + toDate : "")
+        : ""
 
     onActiveChanged: {
         if (active) {
-            verProc.running = true;
+            startCheck();
         } else {
+            checking = false;
+            applying = false;
             focusRowItem = null;
             kbIndex = -1;
         }
     }
 
-    Process {
-        id: verProc
-        command: ["sh", "-c", "git -C \"" + root.repoDir + "\" log -1 --format='%h %cs'"]
-        stdout: StdioCollector {
-            onStreamFinished: root.version = this.text.trim()
-        }
+    function resetResult() {
+        status = "";
+        behindCount = 0;
+        fromDate = "";
+        toDate = "";
+        changelog = [];
+        conflicts = [];
+        errorText = "";
+        takePaths = ({});
+    }
+
+    /** Drop the behind-driven sections so they vanish once an apply has landed. */
+    function clearPending() {
+        behindCount = 0;
+        changelog = [];
+        conflicts = [];
+        takePaths = ({});
+    }
+
+    function ingest(data) {
+        root.status = data.status || "error";
+        root.behindCount = data.behind || 0;
+        root.fromDate = data.fromDate || "";
+        root.toDate = data.toDate || "";
+        root.changelog = data.changelog || [];
+        root.conflicts = data.conflicts || [];
+        root.errorText = data.error || "";
+        if (data.version && data.version.length > 0)
+            root.version = data.version;
+        if (data.applied)
+            root.restartNeeded = data.restartNeeded === true;
+    }
+
+    function startCheck() {
+        if (root.busy)
+            return;
+        root.checking = true;
+        root.restartNeeded = false;
+        resetResult();
+        checkProc.running = true;
+    }
+
+    function startApply() {
+        if (root.busy)
+            return;
+        root.applying = true;
+        var take = [];
+        for (var rel in root.takePaths)
+            if (root.takePaths[rel])
+                take.push(rel);
+        applyProc.takeArg = take.length > 0 ? take.join(",") : "";
+        applyProc.running = true;
     }
 
     Process {
         id: checkProc
-        command: ["sh", "-c",
-            "git -C \"" + root.repoDir + "\" fetch --quiet origin main"
-            + " && L=$(git -C \"" + root.repoDir + "\" rev-parse HEAD)"
-            + " && R=$(git -C \"" + root.repoDir + "\" rev-parse FETCH_HEAD)"
-            + " && if [ \"$L\" = \"$R\" ]; then echo uptodate;"
-            + " else echo \"behind $(git -C \"" + root.repoDir + "\" rev-list --count HEAD..FETCH_HEAD 2>/dev/null)\"; fi"]
+        command: ["python3", root.engine, "check"]
         property string out: ""
         stdout: StdioCollector {
-            onStreamFinished: checkProc.out = this.text.trim()
+            onStreamFinished: checkProc.out = this.text
         }
-        onExited: function (exitCode) {
+        onExited: {
             root.checking = false;
-            var line = checkProc.out;
+            try {
+                root.ingest(JSON.parse(checkProc.out));
+            } catch (e) {
+                root.status = "error";
+                root.errorText = "The updater returned something unexpected.";
+            }
             checkProc.out = "";
-            if (exitCode !== 0 || line.length === 0) {
-                root.behind = false;
-                root.status = "check failed (offline?)";
-                return;
-            }
-            if (line === "uptodate") {
-                root.behind = false;
-                root.checked = true;
-                root.status = "";
-                return;
-            }
-            var n = parseInt(line.split(" ")[1], 10);
-            root.behindCount = (isNaN(n) || n < 1) ? 1 : n;
-            root.behind = true;
-            root.checked = true;
-            root.status = "";
         }
     }
 
     Process {
-        id: pullProc
-        command: ["sh", "-c", "git -C \"" + root.repoDir + "\" pull --ff-only"]
-        property string err: ""
-        stdout: StdioCollector {}
-        stderr: StdioCollector {
-            onStreamFinished: pullProc.err = this.text.trim()
+        id: applyProc
+        property string takeArg: ""
+        property string out: ""
+        command: takeArg.length > 0
+            ? ["python3", root.engine, "apply", "--take", takeArg]
+            : ["python3", root.engine, "apply"]
+        stdout: StdioCollector {
+            onStreamFinished: applyProc.out = this.text
         }
-        onExited: function (exitCode) {
-            root.updating = false;
-            var e = pullProc.err;
-            pullProc.err = "";
-            if (exitCode === 0) {
-                root.behind = false;
-                root.status = "updated · restart the shell to apply";
-                verProc.running = true;
-            } else {
-                root.status = e.length > 0 ? e.split("\n")[0] : "update failed";
+        onExited: {
+            root.applying = false;
+            try {
+                root.ingest(JSON.parse(applyProc.out));
+            } catch (e) {
+                root.resetResult();
+                root.status = "error";
+                root.errorText = "The updater returned something unexpected.";
             }
+            applyProc.out = "";
+            if (root.restartNeeded)
+                root.clearPending();
         }
-    }
-
-    function startCheck() {
-        if (root.checking || root.updating)
-            return;
-        root.checking = true;
-        root.behind = false;
-        root.status = "";
-        checkProc.running = true;
-    }
-
-    function startUpdate() {
-        if (root.updating)
-            return;
-        root.updating = true;
-        root.status = "";
-        pullProc.running = true;
     }
 
     Column {
@@ -169,7 +234,9 @@ SettingsSurface {
 
         Row {
             anchors.left: parent.left
+            anchors.right: parent.right
             anchors.leftMargin: 14 * root.s
+            anchors.rightMargin: 14 * root.s
             spacing: 12 * root.s
 
             Rectangle {
@@ -210,7 +277,8 @@ SettingsSurface {
 
             Column {
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 2 * root.s
+                width: parent.width - 34 * root.s - 12 * root.s
+                spacing: 3 * root.s
 
                 Text {
                     text: root.headline
@@ -219,6 +287,20 @@ SettingsSurface {
                     font.pixelSize: 14.5 * root.s
                     font.weight: Font.Bold
                 }
+
+                Text {
+                    width: parent.width
+                    visible: root.subline.length > 0
+                    text: root.subline
+                    color: Theme.subtle
+                    font.family: Theme.font
+                    font.pixelSize: 10.5 * root.s
+                    font.weight: Font.Medium
+                    wrapMode: Text.WordWrap
+                    lineHeight: 1.2
+                    font.features: { "tnum": 1 }
+                }
+
                 Text {
                     visible: root.version.length > 0
                     text: root.version.replace(" ", " · ")
@@ -233,16 +315,206 @@ SettingsSurface {
 
         Item { width: 1; height: 15 * root.s }
 
+        /**
+         * The changelog is the centrepiece when an update waits: each entry is a
+         * short row with a small marker, the list scrolls when it outgrows its
+         * cap. Hidden in every other state so up-to-date and devmode stay calm.
+         */
+        Column {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 14 * root.s
+            anchors.rightMargin: 14 * root.s
+            spacing: 8 * root.s
+            visible: root.behind
+
+            Text {
+                text: "WHAT'S NEW"
+                color: Theme.faint
+                font.family: Theme.font
+                font.pixelSize: 9 * root.s
+                font.weight: Font.Bold
+                font.capitalization: Font.AllUppercase
+                font.letterSpacing: 1.4 * root.s
+            }
+
+            Text {
+                width: parent.width
+                visible: root.changelog.length === 0
+                text: "No highlights noted"
+                color: Theme.dim
+                font.family: Theme.font
+                font.pixelSize: 11 * root.s
+                font.weight: Font.Medium
+                font.italic: true
+            }
+
+            ListView {
+                id: logList
+                width: parent.width
+                height: visible ? Math.min(contentHeight, 168 * root.s) : 0
+                visible: root.changelog.length > 0
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                model: root.changelog
+
+                delegate: Row {
+                    required property var modelData
+                    width: ListView.view.width
+                    spacing: 9 * root.s
+                    topPadding: 3 * root.s
+                    bottomPadding: 3 * root.s
+
+                    Rectangle {
+                        anchors.top: parent.top
+                        anchors.topMargin: 9 * root.s
+                        width: 4 * root.s
+                        height: 4 * root.s
+                        radius: width / 2
+                        color: Theme.vermLit
+                    }
+
+                    Text {
+                        width: parent.width - 13 * root.s
+                        text: parent.modelData
+                        color: Theme.cream
+                        font.family: Theme.font
+                        font.pixelSize: 11.5 * root.s
+                        font.weight: Font.Medium
+                        wrapMode: Text.WordWrap
+                        lineHeight: 1.2
+                    }
+                }
+
+                WheelScroller {
+                    anchors.fill: parent
+                    s: root.s
+                    flick: logList
+                }
+            }
+        }
+
+        Item { width: 1; height: root.behind ? 14 * root.s : 0 }
+
+        /**
+         * Conflicts: every protected file whose local edits overlap an upstream
+         * change. Each lists by friendly name with a two-way choice, "Keep mine"
+         * the default and "Take new" overwriting wholesale on apply.
+         */
+        Column {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 14 * root.s
+            anchors.rightMargin: 14 * root.s
+            spacing: 9 * root.s
+            visible: root.conflicts.length > 0
+
+            Text {
+                width: parent.width
+                text: "Your edits clash with " + root.conflicts.length + " file" + (root.conflicts.length === 1 ? "" : "s")
+                color: Theme.subtle
+                font.family: Theme.font
+                font.pixelSize: 10.5 * root.s
+                font.weight: Font.DemiBold
+                wrapMode: Text.WordWrap
+            }
+
+            Repeater {
+                model: root.conflicts
+
+                Item {
+                    id: confRow
+                    required property var modelData
+                    readonly property string rel: modelData
+                    readonly property bool takeNew: root.takePaths[rel] === true
+
+                    width: parent.width
+                    height: 30 * root.s
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.labelFor(confRow.rel)
+                        color: Theme.cream
+                        font.family: Theme.font
+                        font.pixelSize: 11.5 * root.s
+                        font.weight: Font.DemiBold
+                    }
+
+                    Row {
+                        id: choice
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 0
+
+                        component Seg: Rectangle {
+                            id: seg
+                            property string label: ""
+                            property bool on: false
+                            property int corner: 0
+                            width: segText.implicitWidth + 18 * root.s
+                            height: 24 * root.s
+                            radius: 7 * root.s
+                            topLeftRadius: corner === -1 ? radius : 0
+                            bottomLeftRadius: corner === -1 ? radius : 0
+                            topRightRadius: corner === 1 ? radius : 0
+                            bottomRightRadius: corner === 1 ? radius : 0
+                            color: seg.on ? Qt.alpha(Theme.vermLit, 0.20) : Theme.frameBg
+                            border.width: 1
+                            border.color: seg.on ? Qt.alpha(Theme.vermLit, 0.55) : Theme.hairSoft
+                            Behavior on color { ColorAnimation { duration: Motion.fast } }
+                            Behavior on border.color { ColorAnimation { duration: Motion.fast } }
+
+                            Text {
+                                id: segText
+                                anchors.centerIn: parent
+                                text: seg.label
+                                color: seg.on ? Theme.bright : Theme.dim
+                                font.family: Theme.font
+                                font.pixelSize: 10 * root.s
+                                font.weight: seg.on ? Font.DemiBold : Font.Medium
+                            }
+                        }
+
+                        Seg {
+                            label: "Keep mine"
+                            on: !confRow.takeNew
+                            corner: -1
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.takePaths = Object.assign({}, root.takePaths, { [confRow.rel]: false })
+                            }
+                        }
+
+                        Seg {
+                            label: "Take new"
+                            on: confRow.takeNew
+                            corner: 1
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.takePaths = Object.assign({}, root.takePaths, { [confRow.rel]: true })
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Item { width: 1; height: root.conflicts.length > 0 ? 14 * root.s : 0 }
+
         Rectangle {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.leftMargin: 12 * root.s
             anchors.rightMargin: 12 * root.s
-            height: 1
+            visible: root.behind || root.statusKind !== "devmode"
+            height: visible ? 1 : 0
             color: Theme.hair
         }
 
-        Item { width: 1; height: 15 * root.s }
+        Item { width: 1; height: (root.behind || root.statusKind !== "devmode") ? 15 * root.s : 0 }
 
         Column {
             anchors.left: parent.left
@@ -260,25 +532,25 @@ SettingsSurface {
                 color: Qt.alpha(Theme.vermLit, updateHover.hovered ? 0.30 : 0.20)
                 border.width: 1
                 border.color: Qt.alpha(Theme.vermLit, 0.55)
-                opacity: root.updating ? 0.55 : 1
+                opacity: root.applying ? 0.55 : 1
                 Behavior on color { ColorAnimation { duration: Motion.fast } }
                 Behavior on opacity { NumberAnimation { duration: Motion.fast } }
 
                 HoverHandler {
                     id: updateHover
-                    enabled: !root.updating
+                    enabled: !root.applying
                 }
 
                 MouseArea {
                     anchors.fill: parent
-                    enabled: !root.updating
+                    enabled: !root.applying
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: root.startUpdate()
+                    onClicked: root.startApply()
                 }
 
                 Text {
                     anchors.centerIn: parent
-                    text: root.updating ? "Updating…" : "Update now"
+                    text: root.applying ? "Updating…" : "Update now"
                     color: Theme.bright
                     font.family: Theme.font
                     font.pixelSize: 12 * root.s
@@ -291,28 +563,31 @@ SettingsSurface {
                 width: parent.width
                 height: 38 * root.s
                 radius: 10 * root.s
+                visible: root.statusKind !== "devmode"
                 color: checkHover.hovered ? Qt.alpha(Theme.onGlow, 0.34) : Qt.alpha(Theme.onGlow, 0.20)
                 border.width: 1
                 border.color: Qt.alpha(Theme.onGlow, checkHover.hovered ? 0.6 : 0.4)
-                opacity: root.checking || root.updating ? 0.55 : 1
+                opacity: root.busy ? 0.55 : 1
                 Behavior on color { ColorAnimation { duration: Motion.fast } }
                 Behavior on opacity { NumberAnimation { duration: Motion.fast } }
 
                 HoverHandler {
                     id: checkHover
-                    enabled: !root.checking && !root.updating
+                    enabled: !root.busy
                 }
 
                 MouseArea {
                     anchors.fill: parent
-                    enabled: !root.checking && !root.updating
+                    enabled: !root.busy
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.startCheck()
                 }
 
                 Text {
                     anchors.centerIn: parent
-                    text: root.checking ? "Checking…" : "Check for updates"
+                    text: root.checking ? "Checking…"
+                        : root.statusKind === "offline" ? "Retry"
+                        : "Check for updates"
                     color: Theme.cream
                     font.family: Theme.font
                     font.pixelSize: 12 * root.s
@@ -322,8 +597,8 @@ SettingsSurface {
 
             Text {
                 width: parent.width
-                visible: root.status.length > 0
-                text: root.status
+                visible: root.restartNeeded
+                text: "Updated · restart the shell to apply"
                 color: Theme.subtle
                 font.family: Theme.font
                 font.pixelSize: 10.5 * root.s
