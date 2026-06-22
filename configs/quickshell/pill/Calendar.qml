@@ -52,25 +52,95 @@ PillSurface {
     readonly property bool weatherShown: Weather.ready
     readonly property bool editorShown: selectedDate.length > 0
 
-    /** "YYYY-MM-DD" of the day whose editor is open, "" when none is selected. */
+    /**
+     * Selection: selectedDate is the picked day (and a span's start), selEndDate
+     * the span's last day or "" for a single day. pickingEnd arms the grid so the
+     * next day click closes the span; hoverDay previews that span live while the
+     * pointer moves. Keys are zero-padded "YYYY-MM-DD" so a string compare spans
+     * them, even across months.
+     */
     property string selectedDate: ""
+    property string selEndDate: ""
+    property bool pickingEnd: false
+    property int hoverDay: 0
+
+    /** Span end the grid paints: the live hover while arming, else the set end. */
+    readonly property string rangeEndKey: pickingEnd && hoverDay > 0 ? dateKey(hoverDay) : selEndDate
+    readonly property string rangeLo: {
+        if (selectedDate.length === 0) return "";
+        var b = rangeEndKey;
+        if (b.length === 0) return selectedDate;
+        return selectedDate < b ? selectedDate : b;
+    }
+    readonly property string rangeHi: {
+        if (selectedDate.length === 0) return "";
+        var b = rangeEndKey;
+        if (b.length === 0) return selectedDate;
+        return selectedDate < b ? b : selectedDate;
+    }
+    function inRange(key) {
+        return key.length > 0 && rangeLo.length > 0 && key >= rangeLo && key <= rangeHi;
+    }
+
+    /** "ddd d MMM" for a single day, "d MMM" without the weekday. */
+    function fmtDay(key, dow) {
+        var p = key.split("-");
+        var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+        return loc.toString(d, dow ? "ddd d MMM" : "d MMM");
+    }
+
+    /** "22–25 Jun" within a month, "29 Jun – 2 Jul" across one. */
+    function fmtSpan(loKey, hiKey) {
+        var lp = loKey.split("-");
+        var hp = hiKey.split("-");
+        if (lp[0] === hp[0] && lp[1] === hp[1]) {
+            var d = new Date(Number(lp[0]), Number(lp[1]) - 1, Number(lp[2]));
+            return Number(lp[2]) + "–" + Number(hp[2]) + " " + loc.toString(d, "MMM");
+        }
+        return fmtDay(loKey, false) + " – " + fmtDay(hiKey, false);
+    }
+
+    readonly property real gridHeight: grid.y + rows * cellH + (rows - 1) * rowGap
 
     /** The weather panel and the editor each add their column plus a divider gutter only when visible. */
     implicitWidth: gridW
         + (weatherShown ? weatherW + gutter : 0)
         + (editorShown ? editorW + gutter : 0)
 
-    implicitHeight: grid.y + rows * cellH + (rows - 1) * rowGap
+    implicitHeight: editorShown ? Math.max(gridHeight, edCol.implicitHeight) : gridHeight
 
     readonly property bool todayVisible: viewMonth === today.getMonth()
         && viewYear === today.getFullYear()
-    readonly property int todayIndex: offset + today.getDate() - 1
-    readonly property real cellW: grid.width / 7
-    readonly property real todayX: gridPane.x + grid.x + (todayIndex % 7 + 0.5) * cellW
-    readonly property real todayY: gridPane.y + grid.y + (Math.floor(todayIndex / 7) + 0.5) * (cellH + rowGap) - rowGap / 2
 
-    ameForm: todayVisible ? "ring" : "dock"
-    amePoint: todayVisible ? Qt.point(todayX, todayY) : Qt.point(gridPane.x + grid.x + grid.width / 2, height / 2)
+    /**
+     * Ame is the focus cursor: it rings the picked day, or today when this month
+     * is in view with nothing picked. Browsing another month with nothing picked
+     * leaves no focus, so the bead parks as a soul ember on the 暦 header glyph
+     * (the calendar's lantern, mirroring Sysmon) rather than floating over a
+     * random date cell — which is what read as Ame jumping somewhere random.
+     */
+    readonly property bool selectedInView: selectedDate.length > 0
+        && Number(selectedDate.split("-")[1]) === viewMonth + 1
+        && Number(selectedDate.split("-")[0]) === viewYear
+    readonly property int focusDay: selectedInView
+        ? Number(selectedDate.split("-")[2])
+        : (todayVisible ? today.getDate() : 0)
+    readonly property bool focused: focusDay > 0
+    readonly property int focusIndex: offset + focusDay - 1
+    readonly property real cellW: grid.width / 7
+    readonly property real focusX: gridPane.x + grid.x + (focusIndex % 7 + 0.5) * cellW
+    readonly property real focusY: gridPane.y + grid.y + (Math.floor(focusIndex / 7) + 0.5) * (cellH + rowGap) - rowGap / 2
+
+    readonly property point soulPoint: {
+        void width;
+        void height;
+        if (Flags.showGlyphs)
+            return calGlyph.mapToItem(root, calGlyph.width / 2, -3 * s);
+        return monthLabel.mapToItem(root, -8 * s, monthLabel.height / 2);
+    }
+
+    ameForm: focused ? "ring" : "soul"
+    amePoint: focused ? Qt.point(focusX, focusY) : soulPoint
 
     SystemClock {
         id: sysClock
@@ -107,19 +177,49 @@ PillSurface {
         while (m > 11) { m -= 12; y += 1; }
         viewMonth = m;
         viewYear = y;
-        selectedDate = "";
+        hoverDay = 0;
+        if (!pickingEnd) {
+            selectedDate = "";
+            selEndDate = "";
+        }
     }
 
     function resetToday() {
         viewYear = today.getFullYear();
         viewMonth = today.getMonth();
         selectedDate = "";
+        selEndDate = "";
+        pickingEnd = false;
+        hoverDay = 0;
     }
 
-    /** Toggle a day's editor: re-clicking the open day closes it. */
+    /**
+     * Click handling: while arming a span the next click sets its end (clicking
+     * the start again drops the span); a click below the start swaps the two so
+     * the earlier day stays the start. Otherwise it toggles a single day and
+     * re-clicking the open day closes the editor.
+     */
     function selectDay(day) {
         var key = dateKey(day);
-        selectedDate = (selectedDate === key) ? "" : key;
+        if (pickingEnd) {
+            pickingEnd = false;
+            hoverDay = 0;
+            if (key === selectedDate)
+                selEndDate = "";
+            else if (key < selectedDate) {
+                selEndDate = selectedDate;
+                selectedDate = key;
+            } else {
+                selEndDate = key;
+            }
+            return;
+        }
+        if (selectedDate === key && selEndDate.length === 0) {
+            selectedDate = "";
+            return;
+        }
+        selectedDate = key;
+        selEndDate = "";
     }
 
     onActiveChanged: if (active) resetToday()
@@ -179,19 +279,77 @@ PillSurface {
                 width: parent.width
                 spacing: 8 * root.s
 
-                Text {
+                /**
+                 * IP geolocation only ever resolves to the ISP city, so the town
+                 * is editable in place: tap to type, which sets Flags.weatherCity
+                 * and re-geocodes through Open-Meteo for the exact spot. Blank it
+                 * to fall back to auto IP detection.
+                 */
+                Item {
+                    id: cityBox
                     anchors.verticalCenter: parent.verticalCenter
-                    text: Weather.city
-                    color: Theme.dim
-                    font.family: Theme.font
-                    font.pixelSize: 9 * root.s
-                    font.weight: Font.Medium
-                    font.capitalization: Font.AllUppercase
-                    font.letterSpacing: 0.8 * root.s
-                    elide: Text.ElideRight
-                    visible: Weather.city.length > 0
+                    width: parent.width - humidityRow.width - 8 * root.s
+                    height: 14 * root.s
+
+                    property bool editing: false
+
+                    Text {
+                        id: cityText
+                        visible: !cityBox.editing
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Weather.city.length > 0 ? Weather.city : "set town"
+                        color: cityArea.containsMouse ? Theme.subtle : Theme.dim
+                        font.family: Theme.font
+                        font.pixelSize: 9 * root.s
+                        font.weight: Font.Medium
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.8 * root.s
+                        elide: Text.ElideRight
+                    }
+                    MouseArea {
+                        id: cityArea
+                        visible: !cityBox.editing
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            cityField.text = Flags.weatherCity;
+                            cityBox.editing = true;
+                            cityField.forceActiveFocus();
+                            cityField.selectAll();
+                        }
+                    }
+                    TextField {
+                        id: cityField
+                        visible: cityBox.editing
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        background: null
+                        padding: 0
+                        verticalAlignment: TextInput.AlignVCenter
+                        color: Theme.cream
+                        font.family: Theme.font
+                        font.pixelSize: 9 * root.s
+                        font.weight: Font.Medium
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.8 * root.s
+                        placeholderText: "town"
+                        placeholderTextColor: Theme.faint
+                        selectByMouse: true
+                        selectionColor: Theme.verm
+                        onAccepted: {
+                            Flags.weatherCity = text.trim();
+                            cityBox.editing = false;
+                        }
+                        Keys.onEscapePressed: cityBox.editing = false
+                        onActiveFocusChanged: if (!activeFocus) cityBox.editing = false
+                    }
                 }
                 Row {
+                    id: humidityRow
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 3 * root.s
 
@@ -321,6 +479,7 @@ PillSurface {
                 spacing: 8 * root.s
 
                 Text {
+                    id: calGlyph
                     anchors.verticalCenter: parent.verticalCenter
                     visible: Flags.showGlyphs
                     text: "暦"
@@ -330,6 +489,7 @@ PillSurface {
                     font.pixelSize: 16 * root.s
                 }
                 Text {
+                    id: monthLabel
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.loc.standaloneMonthName(root.viewMonth, Locale.LongFormat)
                         + " " + root.viewYear
@@ -446,7 +606,9 @@ PillSurface {
                     readonly property bool current: inMonth && root.isToday(dayNum)
                     readonly property string dayKey: inMonth ? root.dateKey(dayNum) : ""
                     readonly property bool hasEvent: inMonth && Events.hasEvents(cell.dayKey)
-                    readonly property bool picked: inMonth && root.selectedDate === cell.dayKey
+                    readonly property bool sel: inMonth && root.inRange(cell.dayKey)
+                    readonly property bool selEdge: cell.sel
+                        && (cell.dayKey === root.rangeLo || cell.dayKey === root.rangeHi)
                     readonly property int ghostNum: dayNum < 1
                         ? root.daysInMonth(root.viewYear, root.viewMonth - 1) + dayNum
                         : dayNum - root.monthLen
@@ -465,10 +627,11 @@ PillSurface {
                         width: 24 * root.s
                         height: 24 * root.s
                         radius: Motion.rSmall * root.s
-                        visible: cell.current || cell.picked
-                        color: cell.picked && !cell.current ? Qt.alpha(Theme.vermLit, 0.12) : Theme.frameBg
+                        visible: cell.current || cell.sel
+                        color: cell.sel && !cell.current ? Qt.alpha(Theme.vermLit, 0.12) : Theme.frameBg
                         border.width: 1
-                        border.color: cell.picked ? Qt.alpha(Theme.vermLit, 0.55) : Theme.frameBorder
+                        border.color: cell.selEdge ? Qt.alpha(Theme.vermLit, 0.55)
+                            : (cell.sel ? Qt.alpha(Theme.vermLit, 0.22) : Theme.frameBorder)
                     }
 
                     Text {
@@ -504,9 +667,24 @@ PillSurface {
                         enabled: cell.inMonth
                         cursorShape: cell.inMonth ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: if (cell.inMonth) root.selectDay(cell.dayNum)
+                        onContainsMouseChanged: if (root.pickingEnd && cell.inMonth && containsMouse)
+                            root.hoverDay = cell.dayNum
                     }
                 }
             }
+        }
+
+        Text {
+            anchors.horizontalCenter: grid.horizontalCenter
+            anchors.top: grid.bottom
+            anchors.topMargin: 6 * root.s
+            visible: root.pickingEnd
+            text: "click the end day"
+            color: Theme.flameGlow
+            font.family: Theme.font
+            font.pixelSize: 9 * root.s
+            font.weight: Font.DemiBold
+            font.letterSpacing: 0.4 * root.s
         }
 
         MouseArea {
@@ -514,8 +692,12 @@ PillSurface {
             anchors.right: parent.right
             anchors.top: grid.bottom
             anchors.bottom: parent.bottom
-            enabled: root.editorShown
-            onClicked: root.selectedDate = ""
+            enabled: root.editorShown && !root.pickingEnd
+            onClicked: {
+                root.selectedDate = "";
+                root.selEndDate = "";
+                root.pickingEnd = false;
+            }
         }
     }
 
@@ -543,19 +725,25 @@ PillSurface {
         opacity: root.editorShown ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard } }
 
-        /** Parsed events for the open day; empty until a day is picked. */
+        /** Events covering the picked day (a span's start), empty until a day is picked. */
         readonly property var dayEvents: root.selectedDate.length > 0
             ? Events.forDate(root.selectedDate) : []
 
-        /** "Mon 9 Jun" heading for the open day, parsed back from the key. */
+        /** Single day reads "Mon 9 Jun"; a span reads its range. */
         readonly property string heading: {
             if (root.selectedDate.length === 0)
                 return "";
-            var p = root.selectedDate.split("-");
-            var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
-            return root.loc.toString(d, "ddd d MMM");
+            if (root.selEndDate.length === 0)
+                return root.fmtDay(root.selectedDate, true);
+            return root.fmtSpan(root.rangeLo, root.rangeHi);
         }
 
+        readonly property string spanLabel: root.selEndDate.length === 0
+            ? root.fmtDay(root.selectedDate, false)
+            : root.fmtSpan(root.rangeLo, root.rangeHi)
+
+        /** "allday" (default) hides the time fields; "timed" reveals start/end. */
+        property string mode: "allday"
         property string startVal: ""
         property string endVal: ""
         property string titleVal: ""
@@ -579,225 +767,151 @@ PillSurface {
         function commit() {
             if (titleVal.trim().length === 0)
                 return;
-            Events.add(root.selectedDate, editor.cleanTime(startVal), editor.cleanTime(endVal), titleVal.trim());
+            var t = editor.mode === "timed" ? editor.cleanTime(startVal) : "";
+            var e = editor.mode === "timed" ? editor.cleanTime(endVal) : "";
+            Events.add(root.selectedDate, root.selEndDate, t, e, titleVal.trim());
             clearForm();
             titleField.forceActiveFocus();
         }
 
-        onWidthChanged: if (width < 1) clearForm()
+        onWidthChanged: if (width < 1) { clearForm(); mode = "allday"; }
 
-        Text {
-            id: edHeading
+        Column {
+            id: edCol
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            text: editor.heading
-            color: Theme.cream
-            font.family: Theme.font
-            font.pixelSize: 12 * root.s
-            font.weight: Font.DemiBold
-            font.capitalization: Font.AllUppercase
-            font.letterSpacing: 0.8 * root.s
-            elide: Text.ElideRight
-        }
-
-        Rectangle {
-            id: edDivider
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: edHeading.bottom
-            anchors.topMargin: 7 * root.s
-            height: 1
-            color: Theme.hair
-        }
-
-        Column {
-            id: edList
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: edDivider.bottom
-            anchors.topMargin: 8 * root.s
-            spacing: 4 * root.s
+            spacing: 8 * root.s
 
             Text {
-                visible: editor.dayEvents.length === 0
-                text: "Nothing yet"
-                color: Theme.faint
+                width: parent.width
+                text: editor.heading
+                color: Theme.cream
                 font.family: Theme.font
-                font.pixelSize: 11 * root.s
-                font.weight: Font.Medium
-                font.italic: true
+                font.pixelSize: 12 * root.s
+                font.weight: Font.DemiBold
+                font.capitalization: Font.AllUppercase
+                font.letterSpacing: 0.8 * root.s
+                elide: Text.ElideRight
             }
 
-            Repeater {
-                model: editor.dayEvents
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: Theme.hair
+            }
 
-                Rectangle {
-                    id: evRow
-                    required property var modelData
-                    width: edList.width
-                    height: 30 * root.s
-                    radius: Motion.rSmall * root.s
-                    color: evArea.hovered ? Theme.frameBg : "transparent"
+            Column {
+                id: edList
+                width: parent.width
+                spacing: 4 * root.s
 
-                    readonly property string span: {
-                        var t = evRow.modelData.time || "";
-                        var e = evRow.modelData.endTime || "";
-                        if (t.length === 0)
-                            return "all day";
-                        return e.length > 0 ? t + "–" + e : t;
-                    }
+                Text {
+                    visible: editor.dayEvents.length === 0
+                    text: "Nothing yet"
+                    color: Theme.faint
+                    font.family: Theme.font
+                    font.pixelSize: 11 * root.s
+                    font.weight: Font.Medium
+                    font.italic: true
+                }
 
-                    HoverHandler { id: evArea }
+                Repeater {
+                    model: editor.dayEvents
 
-                    Column {
-                        anchors.left: parent.left
-                        anchors.leftMargin: 8 * root.s
-                        anchors.right: evDel.left
-                        anchors.rightMargin: 6 * root.s
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 1 * root.s
+                    Rectangle {
+                        id: evRow
+                        required property var modelData
+                        width: edList.width
+                        height: 30 * root.s
+                        radius: Motion.rSmall * root.s
+                        color: evArea.hovered ? Theme.frameBg : "transparent"
 
-                        Text {
-                            text: evRow.modelData.text
-                            width: parent.width
-                            color: Theme.cream
-                            font.family: Theme.font
-                            font.pixelSize: 11 * root.s
-                            font.weight: Font.Medium
-                            elide: Text.ElideRight
-                        }
-                        Text {
-                            text: evRow.span
-                            color: Theme.flameGlow
-                            font.family: Theme.font
-                            font.pixelSize: 9 * root.s
-                            font.weight: Font.DemiBold
-                            font.features: { "tnum": 1 }
-                        }
-                    }
-
-                    Item {
-                        id: evDel
-                        anchors.right: parent.right
-                        anchors.rightMargin: 7 * root.s
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 16 * root.s
-                        height: 16 * root.s
-                        opacity: evArea.hovered ? 1 : 0.32
-                        Behavior on opacity { NumberAnimation { duration: Motion.fast } }
-
-                        GlyphIcon {
-                            anchors.fill: parent
-                            name: "close"
-                            color: delArea.containsMouse ? Theme.vermLit : Theme.iconDim
-                            stroke: 1.6
+                        /** "all day" or "09:00–10:00", prefixed with the date span when multi-day. */
+                        readonly property string meta: {
+                            var datePart = "";
+                            if (evRow.modelData.endDate && evRow.modelData.endDate.length > 0)
+                                datePart = root.fmtSpan(evRow.modelData.date, evRow.modelData.endDate);
+                            var t = evRow.modelData.time || "";
+                            var e = evRow.modelData.endTime || "";
+                            var timePart = t.length === 0 ? "all day"
+                                : (e.length > 0 ? t + "–" + e : t);
+                            return datePart.length > 0 ? datePart + " · " + timePart : timePart;
                         }
 
-                        MouseArea {
-                            id: delArea
-                            anchors.fill: parent
-                            anchors.margins: -5 * root.s
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: Events.remove(evRow.modelData.id)
+                        HoverHandler { id: evArea }
+
+                        Column {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 8 * root.s
+                            anchors.right: evDel.left
+                            anchors.rightMargin: 6 * root.s
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 1 * root.s
+
+                            Text {
+                                text: evRow.modelData.text
+                                width: parent.width
+                                color: Theme.cream
+                                font.family: Theme.font
+                                font.pixelSize: 11 * root.s
+                                font.weight: Font.Medium
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                text: evRow.meta
+                                width: parent.width
+                                color: Theme.flameGlow
+                                font.family: Theme.font
+                                font.pixelSize: 9 * root.s
+                                font.weight: Font.DemiBold
+                                font.features: { "tnum": 1 }
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        Item {
+                            id: evDel
+                            anchors.right: parent.right
+                            anchors.rightMargin: 7 * root.s
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 16 * root.s
+                            height: 16 * root.s
+                            opacity: evArea.hovered ? 1 : 0.32
+                            Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+
+                            GlyphIcon {
+                                anchors.fill: parent
+                                name: "close"
+                                color: delArea.containsMouse ? Theme.vermLit : Theme.iconDim
+                                stroke: 1.6
+                            }
+
+                            MouseArea {
+                                id: delArea
+                                anchors.fill: parent
+                                anchors.margins: -5 * root.s
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Events.remove(evRow.modelData.id)
+                            }
                         }
                     }
                 }
             }
-        }
-
-        Column {
-            id: edForm
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            spacing: 7 * root.s
 
             Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
+                width: parent.width
                 height: 1
                 color: Theme.hair
             }
 
             Row {
+                width: parent.width
                 spacing: 8 * root.s
 
                 Item {
-                    width: (edForm.width - 8 * root.s) / 2
-                    height: 26 * root.s
-
-                    TextField {
-                        id: startField
-                        anchors.fill: parent
-                        background: null
-                        padding: 0
-                        leftPadding: 2 * root.s
-                        verticalAlignment: TextInput.AlignVCenter
-                        color: Theme.cream
-                        font.family: Theme.font
-                        font.pixelSize: 13 * root.s
-                        font.features: { "tnum": 1 }
-                        placeholderText: "09:00"
-                        placeholderTextColor: Theme.faint
-                        inputMethodHints: Qt.ImhPreferNumbers
-                        selectByMouse: true
-                        selectionColor: Theme.verm
-                        onTextChanged: editor.startVal = text
-                        Keys.onReturnPressed: editor.commit()
-                    }
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        height: 1
-                        color: Theme.faint
-                        opacity: startField.activeFocus ? 0.7 : 0.2
-                        Behavior on opacity { NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard } }
-                    }
-                }
-
-                Item {
-                    width: (edForm.width - 8 * root.s) / 2
-                    height: 26 * root.s
-
-                    TextField {
-                        id: endField
-                        anchors.fill: parent
-                        background: null
-                        padding: 0
-                        leftPadding: 2 * root.s
-                        verticalAlignment: TextInput.AlignVCenter
-                        color: Theme.cream
-                        font.family: Theme.font
-                        font.pixelSize: 13 * root.s
-                        font.features: { "tnum": 1 }
-                        placeholderText: "until"
-                        placeholderTextColor: Theme.faint
-                        inputMethodHints: Qt.ImhPreferNumbers
-                        selectByMouse: true
-                        selectionColor: Theme.verm
-                        onTextChanged: editor.endVal = text
-                        Keys.onReturnPressed: editor.commit()
-                    }
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        height: 1
-                        color: Theme.faint
-                        opacity: endField.activeFocus ? 0.7 : 0.2
-                        Behavior on opacity { NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard } }
-                    }
-                }
-            }
-
-            Row {
-                spacing: 8 * root.s
-
-                Item {
-                    width: edForm.width - addBtn.width - 8 * root.s
+                    width: parent.width - addBtn.width - 8 * root.s
                     height: 28 * root.s
 
                     TextField {
@@ -856,6 +970,196 @@ PillSurface {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: editor.commit()
+                    }
+                }
+            }
+
+            SettingsSeg {
+                s: root.s
+                options: [
+                    { label: "All day", value: "allday" },
+                    { label: "Timed", value: "timed" }
+                ]
+                value: editor.mode
+                onPicked: (v) => editor.mode = v
+            }
+
+            Row {
+                width: parent.width
+                spacing: 8 * root.s
+                visible: editor.mode === "timed"
+
+                Item {
+                    width: (parent.width - 8 * root.s) / 2
+                    height: 26 * root.s
+
+                    TextField {
+                        id: startField
+                        anchors.fill: parent
+                        background: null
+                        padding: 0
+                        leftPadding: 2 * root.s
+                        verticalAlignment: TextInput.AlignVCenter
+                        color: Theme.cream
+                        font.family: Theme.font
+                        font.pixelSize: 13 * root.s
+                        font.features: { "tnum": 1 }
+                        placeholderText: "09:00"
+                        placeholderTextColor: Theme.faint
+                        inputMethodHints: Qt.ImhPreferNumbers
+                        selectByMouse: true
+                        selectionColor: Theme.verm
+                        onTextChanged: editor.startVal = text
+                        Keys.onReturnPressed: editor.commit()
+                    }
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: 1
+                        color: Theme.faint
+                        opacity: startField.activeFocus ? 0.7 : 0.2
+                        Behavior on opacity { NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard } }
+                    }
+                }
+
+                Item {
+                    width: (parent.width - 8 * root.s) / 2
+                    height: 26 * root.s
+
+                    TextField {
+                        id: endField
+                        anchors.fill: parent
+                        background: null
+                        padding: 0
+                        leftPadding: 2 * root.s
+                        verticalAlignment: TextInput.AlignVCenter
+                        color: Theme.cream
+                        font.family: Theme.font
+                        font.pixelSize: 13 * root.s
+                        font.features: { "tnum": 1 }
+                        placeholderText: "until"
+                        placeholderTextColor: Theme.faint
+                        inputMethodHints: Qt.ImhPreferNumbers
+                        selectByMouse: true
+                        selectionColor: Theme.verm
+                        onTextChanged: editor.endVal = text
+                        Keys.onReturnPressed: editor.commit()
+                    }
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: 1
+                        color: Theme.faint
+                        opacity: endField.activeFocus ? 0.7 : 0.2
+                        Behavior on opacity { NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard } }
+                    }
+                }
+            }
+
+            /**
+             * Span control: the chip shows the day or range, the button arms the
+             * grid so the next day click closes a span (the under-grid hint and
+             * range tint guide it), and ✕ drops a set span back to a single day.
+             */
+            Row {
+                width: parent.width
+                spacing: 8 * root.s
+
+                Rectangle {
+                    id: spanChip
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - extendBtn.width - clearSpan.width - 16 * root.s
+                    height: 28 * root.s
+                    radius: Motion.rSmall * root.s
+                    color: Theme.frameBg
+                    border.width: 1
+                    border.color: Theme.frameBorder
+
+                    Row {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 9 * root.s
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 7 * root.s
+
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 9 * root.s
+                            height: 9 * root.s
+                            radius: 3 * root.s
+                            color: Theme.flameGlow
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: editor.spanLabel
+                            color: root.selEndDate.length > 0 ? Theme.cream : Theme.subtle
+                            font.family: Theme.font
+                            font.pixelSize: 11 * root.s
+                            font.weight: Font.Medium
+                            font.features: { "tnum": 1 }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: extendBtn
+                    anchors.verticalCenter: parent.verticalCenter
+                    readonly property bool armed: root.pickingEnd
+                    width: extendLabel.implicitWidth + 18 * root.s
+                    height: 28 * root.s
+                    radius: Motion.rSmall * root.s
+                    color: armed ? Qt.alpha(Theme.vermLit, 0.14) : Theme.frameBg
+                    border.width: 1
+                    border.color: armed ? Qt.alpha(Theme.vermLit, 0.5) : Theme.frameBorder
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+                    Text {
+                        id: extendLabel
+                        anchors.centerIn: parent
+                        text: root.pickingEnd ? "pick…" : (root.selEndDate.length > 0 ? "edit" : "+ days")
+                        color: extendBtn.armed ? Theme.vermLit : Theme.dim
+                        font.family: Theme.font
+                        font.pixelSize: 10.5 * root.s
+                        font.weight: Font.Bold
+                        font.letterSpacing: 0.3 * root.s
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (root.pickingEnd) {
+                                root.pickingEnd = false;
+                                root.hoverDay = 0;
+                            } else {
+                                root.selEndDate = "";
+                                root.pickingEnd = true;
+                            }
+                        }
+                    }
+                }
+
+                Item {
+                    id: clearSpan
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: visible ? 16 * root.s : 0
+                    height: 16 * root.s
+                    visible: root.selEndDate.length > 0 && !root.pickingEnd
+
+                    GlyphIcon {
+                        anchors.fill: parent
+                        name: "close"
+                        color: clearArea.containsMouse ? Theme.vermLit : Theme.iconDim
+                        stroke: 1.6
+                    }
+                    MouseArea {
+                        id: clearArea
+                        anchors.fill: parent
+                        anchors.margins: -5 * root.s
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.selEndDate = ""
                     }
                 }
             }

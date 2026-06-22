@@ -7,8 +7,11 @@ import Quickshell.Io
  * Local calendar events, persisted as a plain JSON array beside the session
  * flags (~/.local/state/ricelin/events.json) and watched for external edits so
  * a hand-edit or a second daemon's write reloads live. The file holds an array
- * of { id, date: "YYYY-MM-DD", time: "HH:MM", endTime: "HH:MM", text }; time and
- * endTime may be "" for an all-day or open-ended entry.
+ * of { id, date, endDate, time, endTime, text } with date/endDate as "YYYY-MM-DD".
+ * endDate is "" for a single-day entry, otherwise the last day a multi-day span
+ * covers. time and endTime may be "" for an all-day or open-ended entry. Because
+ * the keys are zero-padded "YYYY-MM-DD", a plain string compare orders and spans
+ * dates correctly, so coverage tests need no Date parsing.
  *
  * A bare array is simpler than a JsonAdapter for a growing list: read the text,
  * JSON.parse, mutate the array, JSON.stringify back through setText. Every parse
@@ -58,9 +61,18 @@ Singleton {
         file.setText(JSON.stringify(root.events));
     }
 
-    /** Events on `dateStr`, sorted by start time; an empty time sorts first. */
+    /** Last day an event covers: its endDate, or its start when single-day. */
+    function lastDay(e) {
+        return e.endDate && e.endDate.length > 0 ? e.endDate : e.date;
+    }
+
+    function covers(e, dateStr) {
+        return dateStr >= e.date && dateStr <= root.lastDay(e);
+    }
+
+    /** Events covering `dateStr`, sorted by start time; an empty time sorts first. */
     function forDate(dateStr) {
-        var out = root.events.filter(function (e) { return e.date === dateStr; });
+        var out = root.events.filter(function (e) { return root.covers(e, dateStr); });
         out.sort(function (a, b) {
             var at = a.time || "";
             var bt = b.time || "";
@@ -77,18 +89,19 @@ Singleton {
 
     function hasEvents(dateStr) {
         for (var i = 0; i < root.events.length; i++) {
-            if (root.events[i].date === dateStr)
+            if (root.covers(root.events[i], dateStr))
                 return true;
         }
         return false;
     }
 
     /** Append an event and persist; reassigns `events` so bindings refresh. */
-    function add(dateStr, time, endTime, text) {
+    function add(dateStr, endDate, time, endTime, text) {
         var next = root.events.slice();
         next.push({
             id: root.nextId,
             date: dateStr,
+            endDate: endDate || "",
             time: time || "",
             endTime: endTime || "",
             text: text || ""
