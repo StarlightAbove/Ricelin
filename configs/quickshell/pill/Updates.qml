@@ -211,9 +211,32 @@ SettingsSurface {
                 root.errorText = "The updater returned something unexpected.";
             }
             applyProc.out = "";
-            if (root.restartNeeded)
+            if (root.restartNeeded) {
                 root.clearPending();
+                restartTimer.start();
+            }
         }
+    }
+
+    /**
+     * New code only takes effect once the shell reloads, so do it for the user
+     * instead of asking. The brief delay lets the "Updated" line register first.
+     */
+    Timer {
+        id: restartTimer
+        interval: 1200
+        onTriggered: restartProc.running = true
+    }
+
+    /**
+     * Relaunch the pill on its own. setsid detaches the relaunch so it outlives the
+     * instance it kills, and the guard skips a second spawn if the watchdog already
+     * brought it back. Settings persist through flags.json, so it returns as it was.
+     */
+    Process {
+        id: restartProc
+        command: ["setsid", "sh", "-c",
+            "qs -c pill kill; sleep 0.4; qs -c pill ipc show >/dev/null 2>&1 || qs -c pill -d"]
     }
 
     Column {
@@ -598,7 +621,7 @@ SettingsSurface {
             Text {
                 width: parent.width
                 visible: root.restartNeeded
-                text: "Updated · restart the shell to apply"
+                text: "Updated · restarting the shell"
                 color: Theme.subtle
                 font.family: Theme.font
                 font.pixelSize: 10.5 * root.s
