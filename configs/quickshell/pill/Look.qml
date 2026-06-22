@@ -29,14 +29,30 @@ SettingsSurface {
     property int gapsIn: 6
     property int gapsOut: 12
     property int rounding: 12
+    property int roundingPower: 4
     property int borderSize: 2
+    property bool resizeOnBorder: true
+    property string layout: "dwindle"
     property bool blurOn: true
     property int blurSize: 8
     property int blurPasses: 3
+    property real blurVibrancy: 0.17
+    property real blurNoise: 0.01
+    property bool shadowOn: true
+    property int shadowRange: 12
+    property int shadowRenderPower: 3
     property real activeOpacity: 1.0
     property real inactiveOpacity: 1.0
 
+    readonly property var layoutOptions: [
+        { label: "Dwindle", value: "dwindle" },
+        { label: "Master", value: "master" }
+    ]
+
     property string decoText: ""
+
+    /** Per-field values captured on each open; the ScrubValue undo glyphs revert to these. */
+    property var base: ({})
 
     onActiveChanged: {
         if (active) {
@@ -64,14 +80,29 @@ SettingsSurface {
         root.gapsOut = isNaN(go) ? 12 : go;
         var rd = parseInt(SetDeco.getField(t, "rounding"), 10);
         root.rounding = isNaN(rd) ? 12 : rd;
+        var rp = parseInt(SetDeco.getField(t, "rounding_power"), 10);
+        root.roundingPower = isNaN(rp) ? 4 : rp;
         var bs = parseInt(SetDeco.getField(t, "border_size"), 10);
         root.borderSize = isNaN(bs) ? 2 : bs;
+        root.resizeOnBorder = SetDeco.getField(t, "resize_on_border") === "true";
+        var lo = SetDeco.getField(t, "layout");
+        root.layout = lo.length > 0 ? lo : "dwindle";
 
         root.blurOn = SetDeco.getBlockField(t, "blur", "enabled") === "true";
         var bz = parseInt(SetDeco.getBlockField(t, "blur", "size"), 10);
         root.blurSize = isNaN(bz) ? 8 : bz;
         var bp = parseInt(SetDeco.getBlockField(t, "blur", "passes"), 10);
         root.blurPasses = isNaN(bp) ? 3 : bp;
+        var vb = parseFloat(SetDeco.getBlockField(t, "blur", "vibrancy"));
+        root.blurVibrancy = isNaN(vb) ? 0.17 : vb;
+        var nz = parseFloat(SetDeco.getBlockField(t, "blur", "noise"));
+        root.blurNoise = isNaN(nz) ? 0.01 : nz;
+
+        root.shadowOn = SetDeco.getBlockField(t, "shadow", "enabled") === "true";
+        var sr = parseInt(SetDeco.getBlockField(t, "shadow", "range"), 10);
+        root.shadowRange = isNaN(sr) ? 12 : sr;
+        var sp = parseInt(SetDeco.getBlockField(t, "shadow", "render_power"), 10);
+        root.shadowRenderPower = isNaN(sp) ? 3 : sp;
 
         var ao = parseFloat(SetDeco.getField(t, "active_opacity"));
         root.activeOpacity = isNaN(ao) ? 1.0 : ao;
@@ -79,6 +110,23 @@ SettingsSurface {
         root.inactiveOpacity = isNaN(io) ? 1.0 : io;
 
         Flags.pillBlur = SetDeco.hasNamedRule(t, "pill-blur");
+
+        root.base = {
+            gapsIn: root.gapsIn,
+            gapsOut: root.gapsOut,
+            rounding: root.rounding,
+            roundingPower: root.roundingPower,
+            borderSize: root.borderSize,
+            blurSize: root.blurSize,
+            blurPasses: root.blurPasses,
+            blurVibrancy: root.blurVibrancy,
+            blurNoise: root.blurNoise,
+            shadowRange: root.shadowRange,
+            shadowRenderPower: root.shadowRenderPower,
+            activeOpacity: root.activeOpacity,
+            inactiveOpacity: root.inactiveOpacity,
+            pillOpacity: Flags.pillOpacity
+        };
     }
 
     /**
@@ -118,6 +166,20 @@ SettingsSurface {
      */
     function writeBlur(name, literal) {
         var res = SetDeco.setBlockField(root.decoText, "blur", name, literal);
+        if (!res.ok)
+            return;
+        root.decoText = res.text;
+        decoWriter.setText(res.text);
+        reloadProc.running = true;
+    }
+
+    /**
+     * Rewrites one field inside the `shadow` block to `literal` and reloads
+     * Hyprland. Scoped to the block so `enabled` lands on shadow, not the sibling
+     * `blur` block.
+     */
+    function writeShadow(name, literal) {
+        var res = SetDeco.setBlockField(root.decoText, "shadow", name, literal);
         if (!res.ok)
             return;
         root.decoText = res.text;
@@ -170,83 +232,6 @@ SettingsSurface {
     Process {
         id: opacityRefresh
         command: []
-    }
-
-    component Stepper: Row {
-        id: step
-
-        property real value: 0
-        property string display: ""
-        signal stepped(int dir)
-
-        spacing: 6 * root.s
-
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 26 * root.s
-            height: 26 * root.s
-            radius: Motion.rSmall * root.s
-            color: minusArea.containsMouse ? Theme.frameBg : Theme.tileBg
-            border.width: 1
-            border.color: Theme.border
-            Behavior on color { ColorAnimation { duration: Motion.fast } }
-
-            Text {
-                anchors.centerIn: parent
-                text: "−"
-                color: Theme.cream
-                font.family: Theme.font
-                font.pixelSize: 14 * root.s
-                font.weight: Font.Bold
-            }
-
-            MouseArea {
-                id: minusArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: step.stepped(-1)
-            }
-        }
-
-        Text {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 44 * root.s
-            horizontalAlignment: Text.AlignHCenter
-            text: step.display
-            color: Theme.cream
-            font.family: Theme.font
-            font.pixelSize: 12 * root.s
-            font.weight: Font.DemiBold
-        }
-
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 26 * root.s
-            height: 26 * root.s
-            radius: Motion.rSmall * root.s
-            color: plusArea.containsMouse ? Theme.frameBg : Theme.tileBg
-            border.width: 1
-            border.color: Theme.border
-            Behavior on color { ColorAnimation { duration: Motion.fast } }
-
-            Text {
-                anchors.centerIn: parent
-                text: "+"
-                color: Theme.cream
-                font.family: Theme.font
-                font.pixelSize: 14 * root.s
-                font.weight: Font.Bold
-            }
-
-            MouseArea {
-                id: plusArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: step.stepped(1)
-            }
-        }
     }
 
     component GroupLabel: Text {
@@ -330,15 +315,14 @@ SettingsSurface {
             FieldRow {
                 label: "Gaps inner"
                 caption: "Space between tiled windows"
-                Stepper {
+                ScrubValue {
+                    s: root.s
                     value: root.gapsIn
-                    display: String(root.gapsIn)
-                    onStepped: (dir) => {
-                        var next = Math.max(0, Math.min(40, root.gapsIn + dir));
-                        if (next === root.gapsIn)
-                            return;
-                        root.gapsIn = next;
-                        root.writeDeco("gaps_in", String(next));
+                    openValue: root.base.gapsIn
+                    from: 0; to: 40; step: 1; unit: "px"
+                    onEdited: v => {
+                        root.gapsIn = v;
+                        root.writeDeco("gaps_in", String(v));
                     }
                 }
             }
@@ -346,15 +330,14 @@ SettingsSurface {
             FieldRow {
                 label: "Gaps outer"
                 caption: "Space to the screen edge"
-                Stepper {
+                ScrubValue {
+                    s: root.s
                     value: root.gapsOut
-                    display: String(root.gapsOut)
-                    onStepped: (dir) => {
-                        var next = Math.max(0, Math.min(60, root.gapsOut + dir));
-                        if (next === root.gapsOut)
-                            return;
-                        root.gapsOut = next;
-                        root.writeDeco("gaps_out", String(next));
+                    openValue: root.base.gapsOut
+                    from: 0; to: 60; step: 1; unit: "px"
+                    onEdited: v => {
+                        root.gapsOut = v;
+                        root.writeDeco("gaps_out", String(v));
                     }
                 }
             }
@@ -362,15 +345,29 @@ SettingsSurface {
             FieldRow {
                 label: "Rounding"
                 caption: "Corner radius in pixels"
-                Stepper {
+                ScrubValue {
+                    s: root.s
                     value: root.rounding
-                    display: String(root.rounding)
-                    onStepped: (dir) => {
-                        var next = Math.max(0, Math.min(30, root.rounding + dir));
-                        if (next === root.rounding)
-                            return;
-                        root.rounding = next;
-                        root.writeDeco("rounding", String(next));
+                    openValue: root.base.rounding
+                    from: 0; to: 30; step: 1; unit: "px"
+                    onEdited: v => {
+                        root.rounding = v;
+                        root.writeDeco("rounding", String(v));
+                    }
+                }
+            }
+
+            FieldRow {
+                label: "Rounding power"
+                caption: "Higher bends corners to a squircle"
+                ScrubValue {
+                    s: root.s
+                    value: root.roundingPower
+                    openValue: root.base.roundingPower
+                    from: 1; to: 10; step: 1
+                    onEdited: v => {
+                        root.roundingPower = v;
+                        root.writeDeco("rounding_power", String(v));
                     }
                 }
             }
@@ -378,15 +375,90 @@ SettingsSurface {
             FieldRow {
                 label: "Border size"
                 caption: "Window outline thickness"
-                Stepper {
+                ScrubValue {
+                    s: root.s
                     value: root.borderSize
-                    display: String(root.borderSize)
-                    onStepped: (dir) => {
-                        var next = Math.max(0, Math.min(8, root.borderSize + dir));
-                        if (next === root.borderSize)
-                            return;
-                        root.borderSize = next;
-                        root.writeDeco("border_size", String(next));
+                    openValue: root.base.borderSize
+                    from: 0; to: 8; step: 1; unit: "px"
+                    onEdited: v => {
+                        root.borderSize = v;
+                        root.writeDeco("border_size", String(v));
+                    }
+                }
+            }
+
+            FieldRow {
+                label: "Resize on border"
+                caption: "Drag a window edge to resize"
+                LinkToggle {
+                    s: root.s
+                    on: root.resizeOnBorder
+                    onToggled: {
+                        root.resizeOnBorder = !root.resizeOnBorder;
+                        root.writeDeco("resize_on_border", root.resizeOnBorder ? "true" : "false");
+                    }
+                }
+            }
+
+            FieldRow {
+                label: "Layout"
+                caption: "Tiling layout for new windows"
+                SettingsSeg {
+                    s: root.s
+                    options: root.layoutOptions
+                    value: root.layout
+                    onPicked: v => {
+                        root.layout = v;
+                        root.writeDeco("layout", "\"" + v + "\"");
+                    }
+                }
+            }
+
+            GroupLabel { text: "Shadow" }
+
+            FieldRow {
+                label: "Enabled"
+                caption: "Drop shadow under windows"
+                LinkToggle {
+                    s: root.s
+                    on: root.shadowOn
+                    onToggled: {
+                        root.shadowOn = !root.shadowOn;
+                        root.writeShadow("enabled", root.shadowOn ? "true" : "false");
+                    }
+                }
+            }
+
+            FieldRow {
+                label: "Range"
+                caption: "How far the shadow spreads"
+                visible: root.shadowOn
+                height: root.shadowOn ? 34 * root.s : 0
+                ScrubValue {
+                    s: root.s
+                    value: root.shadowRange
+                    openValue: root.base.shadowRange
+                    from: 0; to: 50; step: 1; unit: "px"
+                    onEdited: v => {
+                        root.shadowRange = v;
+                        root.writeShadow("range", String(v));
+                    }
+                }
+            }
+
+            FieldRow {
+                label: "Render power"
+                caption: "Shadow falloff sharpness"
+                visible: root.shadowOn
+                height: root.shadowOn ? 34 * root.s : 0
+                ScrubValue {
+                    s: root.s
+                    value: root.shadowRenderPower
+                    openValue: root.base.shadowRenderPower
+                    from: 1; to: 4; step: 1
+                    onEdited: v => {
+                        root.shadowRenderPower = v;
+                        root.writeShadow("render_power", String(v));
                     }
                 }
             }
@@ -411,15 +483,14 @@ SettingsSurface {
                 caption: "Blur radius"
                 visible: root.blurOn
                 height: root.blurOn ? 34 * root.s : 0
-                Stepper {
+                ScrubValue {
+                    s: root.s
                     value: root.blurSize
-                    display: String(root.blurSize)
-                    onStepped: (dir) => {
-                        var next = Math.max(1, Math.min(20, root.blurSize + dir));
-                        if (next === root.blurSize)
-                            return;
-                        root.blurSize = next;
-                        root.writeBlur("size", String(next));
+                    openValue: root.base.blurSize
+                    from: 1; to: 20; step: 1; unit: "px"
+                    onEdited: v => {
+                        root.blurSize = v;
+                        root.writeBlur("size", String(v));
                     }
                 }
             }
@@ -429,15 +500,48 @@ SettingsSurface {
                 caption: "More passes, smoother blur"
                 visible: root.blurOn
                 height: root.blurOn ? 34 * root.s : 0
-                Stepper {
+                ScrubValue {
+                    s: root.s
                     value: root.blurPasses
-                    display: String(root.blurPasses)
-                    onStepped: (dir) => {
-                        var next = Math.max(1, Math.min(5, root.blurPasses + dir));
-                        if (next === root.blurPasses)
-                            return;
-                        root.blurPasses = next;
-                        root.writeBlur("passes", String(next));
+                    openValue: root.base.blurPasses
+                    from: 1; to: 5; step: 1
+                    onEdited: v => {
+                        root.blurPasses = v;
+                        root.writeBlur("passes", String(v));
+                    }
+                }
+            }
+
+            FieldRow {
+                label: "Vibrancy"
+                caption: "Color saturation behind the blur"
+                visible: root.blurOn
+                height: root.blurOn ? 34 * root.s : 0
+                ScrubValue {
+                    s: root.s
+                    value: root.blurVibrancy
+                    openValue: root.base.blurVibrancy
+                    from: 0; to: 1; step: 0.01; decimals: 2
+                    onEdited: v => {
+                        root.blurVibrancy = v;
+                        root.writeBlur("vibrancy", v.toFixed(2));
+                    }
+                }
+            }
+
+            FieldRow {
+                label: "Noise"
+                caption: "Grain mixed into the blur"
+                visible: root.blurOn
+                height: root.blurOn ? 34 * root.s : 0
+                ScrubValue {
+                    s: root.s
+                    value: root.blurNoise
+                    openValue: root.base.blurNoise
+                    from: 0; to: 0.2; step: 0.01; decimals: 2
+                    onEdited: v => {
+                        root.blurNoise = v;
+                        root.writeBlur("noise", v.toFixed(2));
                     }
                 }
             }
@@ -447,15 +551,14 @@ SettingsSurface {
             FieldRow {
                 label: "Active window"
                 caption: "Focused window transparency"
-                Stepper {
+                ScrubValue {
+                    s: root.s
                     value: root.activeOpacity
-                    display: root.activeOpacity.toFixed(2)
-                    onStepped: (dir) => {
-                        var next = Math.max(0.5, Math.min(1.0, Math.round((root.activeOpacity + dir * 0.05) * 100) / 100));
-                        if (next === root.activeOpacity)
-                            return;
-                        root.activeOpacity = next;
-                        root.writeOpacity("active_opacity", next.toFixed(2));
+                    openValue: root.base.activeOpacity
+                    from: 0.5; to: 1.0; step: 0.05; decimals: 2
+                    onEdited: v => {
+                        root.activeOpacity = v;
+                        root.writeOpacity("active_opacity", v.toFixed(2));
                     }
                 }
             }
@@ -463,15 +566,14 @@ SettingsSurface {
             FieldRow {
                 label: "Inactive window"
                 caption: "Unfocused window transparency"
-                Stepper {
+                ScrubValue {
+                    s: root.s
                     value: root.inactiveOpacity
-                    display: root.inactiveOpacity.toFixed(2)
-                    onStepped: (dir) => {
-                        var next = Math.max(0.5, Math.min(1.0, Math.round((root.inactiveOpacity + dir * 0.05) * 100) / 100));
-                        if (next === root.inactiveOpacity)
-                            return;
-                        root.inactiveOpacity = next;
-                        root.writeOpacity("inactive_opacity", next.toFixed(2));
+                    openValue: root.base.inactiveOpacity
+                    from: 0.5; to: 1.0; step: 0.05; decimals: 2
+                    onEdited: v => {
+                        root.inactiveOpacity = v;
+                        root.writeOpacity("inactive_opacity", v.toFixed(2));
                     }
                 }
             }
@@ -481,15 +583,12 @@ SettingsSurface {
             FieldRow {
                 label: "Pill opacity"
                 caption: "How see-through the pill sits"
-                Stepper {
+                ScrubValue {
+                    s: root.s
                     value: Flags.pillOpacity
-                    display: Flags.pillOpacity.toFixed(2)
-                    onStepped: (dir) => {
-                        var next = Math.max(0.5, Math.min(1.0, Math.round((Flags.pillOpacity + dir * 0.05) * 100) / 100));
-                        if (next === Flags.pillOpacity)
-                            return;
-                        Flags.pillOpacity = next;
-                    }
+                    openValue: root.base.pillOpacity
+                    from: 0.5; to: 1.0; step: 0.05; decimals: 2
+                    onEdited: v => Flags.pillOpacity = v
                 }
             }
 

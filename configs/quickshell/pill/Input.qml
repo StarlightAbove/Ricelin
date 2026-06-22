@@ -39,6 +39,9 @@ SettingsSurface {
     property string envText: ""
     property string autostartText: ""
 
+    /** Per-field values captured on each open; the ScrubValue undo glyphs revert to these. */
+    property var base: ({})
+
     readonly property var accelOptions: [
         { label: "Flat", value: "flat" },
         { label: "Adaptive", value: "adaptive" }
@@ -79,6 +82,8 @@ SettingsSurface {
         root.cursorSize = isNaN(cs) ? 24 : cs;
         var ct = SetInput.getField(env, "XCURSOR_THEME");
         root.cursorTheme = ct.length > 0 ? ct : "Bibata-Modern-Ice";
+
+        root.base = { sensitivity: root.sensitivity, cursorSize: root.cursorSize };
     }
 
     /**
@@ -189,83 +194,6 @@ SettingsSurface {
         }
     }
 
-    component Stepper: Row {
-        id: step
-
-        property real value: 0
-        property string display: ""
-        signal stepped(int dir)
-
-        spacing: 6 * root.s
-
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 26 * root.s
-            height: 26 * root.s
-            radius: Motion.rSmall * root.s
-            color: minusArea.containsMouse ? Theme.frameBg : Theme.tileBg
-            border.width: 1
-            border.color: Theme.border
-            Behavior on color { ColorAnimation { duration: Motion.fast } }
-
-            Text {
-                anchors.centerIn: parent
-                text: "−"
-                color: Theme.cream
-                font.family: Theme.font
-                font.pixelSize: 14 * root.s
-                font.weight: Font.Bold
-            }
-
-            MouseArea {
-                id: minusArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: step.stepped(-1)
-            }
-        }
-
-        Text {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 44 * root.s
-            horizontalAlignment: Text.AlignHCenter
-            text: step.display
-            color: Theme.cream
-            font.family: Theme.font
-            font.pixelSize: 12 * root.s
-            font.weight: Font.DemiBold
-        }
-
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-            width: 26 * root.s
-            height: 26 * root.s
-            radius: Motion.rSmall * root.s
-            color: plusArea.containsMouse ? Theme.frameBg : Theme.tileBg
-            border.width: 1
-            border.color: Theme.border
-            Behavior on color { ColorAnimation { duration: Motion.fast } }
-
-            Text {
-                anchors.centerIn: parent
-                text: "+"
-                color: Theme.cream
-                font.family: Theme.font
-                font.pixelSize: 14 * root.s
-                font.weight: Font.Bold
-            }
-
-            MouseArea {
-                id: plusArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: step.stepped(1)
-            }
-        }
-    }
-
     component GroupLabel: Text {
         topPadding: 16 * root.s
         bottomPadding: 6 * root.s
@@ -332,15 +260,14 @@ SettingsSurface {
 
             FieldRow {
                 label: "Sensitivity"
-                Stepper {
+                ScrubValue {
+                    s: root.s
                     value: root.sensitivity
-                    display: root.sensitivity.toFixed(1)
-                    onStepped: (dir) => {
-                        var next = root.clampSensitivity(root.sensitivity + dir * 0.1);
-                        if (next === root.sensitivity)
-                            return;
-                        root.sensitivity = next;
-                        root.writeInputField("sensitivity", String(next));
+                    openValue: root.base.sensitivity
+                    from: -1; to: 1; step: 0.1; decimals: 1
+                    onEdited: v => {
+                        root.sensitivity = v;
+                        root.writeInputField("sensitivity", String(v));
                     }
                 }
             }
@@ -362,15 +289,14 @@ SettingsSurface {
 
             FieldRow {
                 label: "Size"
-                Stepper {
+                ScrubValue {
+                    s: root.s
                     value: root.cursorSize
-                    display: String(root.cursorSize)
-                    onStepped: (dir) => {
-                        var next = Math.max(12, Math.min(96, root.cursorSize + dir * 4));
-                        if (next === root.cursorSize)
-                            return;
-                        root.cursorSize = next;
-                        root.applyCursor(root.cursorTheme, next);
+                    openValue: root.base.cursorSize
+                    from: 12; to: 96; step: 4; unit: "px"
+                    onEdited: v => {
+                        root.cursorSize = v;
+                        root.applyCursor(root.cursorTheme, v);
                     }
                 }
             }
