@@ -823,7 +823,7 @@ PillSurface {
                         id: evRow
                         required property var modelData
                         width: edList.width
-                        height: 30 * root.s
+                        height: evBody.implicitHeight + 12 * root.s
                         radius: Motion.rSmall * root.s
                         color: evArea.hovered ? Theme.frameBg : "transparent"
 
@@ -842,12 +842,14 @@ PillSurface {
                         HoverHandler { id: evArea }
 
                         Column {
+                            id: evBody
                             anchors.left: parent.left
                             anchors.leftMargin: 8 * root.s
                             anchors.right: evDel.left
                             anchors.rightMargin: 6 * root.s
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 1 * root.s
+                            anchors.top: parent.top
+                            anchors.topMargin: 6 * root.s
+                            spacing: 2 * root.s
 
                             Text {
                                 text: evRow.modelData.text
@@ -856,6 +858,8 @@ PillSurface {
                                 font.family: Theme.font
                                 font.pixelSize: 11 * root.s
                                 font.weight: Font.Medium
+                                wrapMode: Text.Wrap
+                                maximumLineCount: 4
                                 elide: Text.ElideRight
                             }
                             Text {
@@ -866,6 +870,7 @@ PillSurface {
                                 font.pixelSize: 9 * root.s
                                 font.weight: Font.DemiBold
                                 font.features: { "tnum": 1 }
+                                wrapMode: Text.Wrap
                                 elide: Text.ElideRight
                             }
                         }
@@ -874,7 +879,8 @@ PillSurface {
                             id: evDel
                             anchors.right: parent.right
                             anchors.rightMargin: 7 * root.s
-                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.top: parent.top
+                            anchors.topMargin: 7 * root.s
                             width: 16 * root.s
                             height: 16 * root.s
                             opacity: evArea.hovered ? 1 : 0.32

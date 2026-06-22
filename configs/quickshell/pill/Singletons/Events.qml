@@ -5,8 +5,11 @@ import Quickshell.Io
 
 /**
  * Local calendar events, persisted as a plain JSON array beside the session
- * flags (~/.local/state/ricelin/events.json) and watched for external edits so
- * a hand-edit or a second daemon's write reloads live. The file holds an array
+ * flags (~/.local/state/ricelin/events.json). The in-memory `events` is the
+ * source of truth: add/remove mutate it and write the file, which is read back
+ * only at startup. The file is deliberately NOT watched — re-reading our own
+ * write races the FileView's cached text and dropped the just-added event (it
+ * flashed in, then vanished until the next write). The file holds an array
  * of { id, date, endDate, time, endTime, text } with date/endDate as "YYYY-MM-DD".
  * endDate is "" for a single-day entry, otherwise the last day a multi-day span
  * covers. time and endTime may be "" for an all-day or open-ended entry. Because
@@ -122,13 +125,8 @@ Singleton {
         id: file
         path: root.stateDir + "/events.json"
         blockLoading: true
-        watchChanges: true
         printErrors: false
 
-        onFileChanged: {
-            reload();
-            root.reloadEvents();
-        }
         onLoadFailed: function (error) {
             if (error === FileViewError.FileNotFound)
                 file.setText("[]");
