@@ -42,7 +42,7 @@ Run it with no options for the guided installer. Flags skip the menu:
   --quickstart  core defaults, no questions asked
   --no-prompt   never ask, take defaults (for headless or CI)
   --no-deps     skip the package step, only deploy the configs
-  --uninstall   remove the Ricelin symlinks and restore the newest backup
+  --uninstall   remove the Ricelin configs and restore the newest backup
   -h, --help    show this
 EOF
 }
@@ -338,20 +338,51 @@ install_rishot() {
 	fi
 }
 
+MARKER=".ricelin-managed"
+
+# Path of the ownership marker for a dest. A directory carries the marker inside
+# it; a file dest cannot, so it gets a sibling marker named after it. The marker
+# means "Ricelin deployed this, replacing it without a backup is safe."
+marker_for() {
+	if [ -d "$1" ] && [ ! -L "$1" ]; then
+		echo "$1/$MARKER"
+	else
+		echo "$(dirname "$1")/$(basename "$1")$MARKER"
+	fi
+}
+
+# True when dest is one of our own deployed copies, spotted by the marker file.
+is_managed() {
+	[ -f "$(marker_for "$1")" ]
+}
+
 backup_path() {
 	target="$1"
 	[ -e "$target" ] || [ -L "$target" ] || return 0
-	link_dest=""
-	[ -L "$target" ] && link_dest="$(readlink "$target")"
-	case "$link_dest" in
-	"$PREFIX"/*) return 0 ;;
-	esac
+	# Our own just-deployed copy carries the marker; skip backing that up so a
+	# re-run does not pile up a fresh timestamped copy each time. A real
+	# pre-existing user config has no marker and is moved aside.
+	is_managed "$target" && return 0
+	# An old symlink-era install left the live config as a symlink into PREFIX
+	# (the clone). That is not user data, so drop it without a backup; backing it
+	# up would let --uninstall restore it and re-point the live config into the
+	# git worktree, which the in-app updater then refuses as devmode. A symlink
+	# the user made themselves points elsewhere and is preserved like any config.
+	if [ -L "$target" ]; then
+		link_dest="$(readlink "$target")"
+		case "$link_dest" in
+		"$PREFIX"/*)
+			rm -f "$target"
+			return 0
+			;;
+		esac
+	fi
 	backup="${target}.bak-ricelin-$(date +%Y%m%d-%H%M%S)"
 	mv "$target" "$backup"
 	say "  backed up $(basename "$target") -> $(basename "$backup")"
 }
 
-link_into_config() {
+copy_into_config() {
 	src="$1"
 	dest="$2"
 	[ -e "$src" ] || {
@@ -359,9 +390,19 @@ link_into_config() {
 		return 0
 	}
 	mkdir -p "$(dirname "$dest")"
-	backup_path "$dest"
-	ln -sfn "$src" "$dest"
-	say "  linked $(basename "$dest")"
+	# A previous copy of ours is removed (not backed up) so the fresh copy
+	# replaces it cleanly instead of nesting inside it. A real user config with
+	# no marker is moved aside by backup_path first.
+	if is_managed "$dest"; then
+		rm -f "$(marker_for "$dest")"
+		rm -rf "$dest"
+	else
+		backup_path "$dest"
+		rm -rf "$dest"
+	fi
+	cp -a "$src" "$dest"
+	touch "$(marker_for "$dest")"
+	say "  copied $(basename "$dest")"
 }
 
 neutralize_clone() {
@@ -430,12 +471,12 @@ deploy() {
 
 	neutralize_clone
 
-	step "Linking configs into $CFG"
-	link_into_config "$PREFIX/configs/hypr" "$CFG/hypr"
-	link_into_config "$PREFIX/configs/quickshell" "$CFG/quickshell"
-	link_into_config "$PREFIX/configs/ghostty" "$CFG/ghostty"
-	link_into_config "$PREFIX/configs/kde/kdeglobals" "$CFG/kdeglobals"
-	link_into_config "$PREFIX/configs/systemd/user/hyprland-session.target" \
+	step "Copying configs into $CFG"
+	copy_into_config "$PREFIX/configs/hypr" "$CFG/hypr"
+	copy_into_config "$PREFIX/configs/quickshell" "$CFG/quickshell"
+	copy_into_config "$PREFIX/configs/ghostty" "$CFG/ghostty"
+	copy_into_config "$PREFIX/configs/kde/kdeglobals" "$CFG/kdeglobals"
+	copy_into_config "$PREFIX/configs/systemd/user/hyprland-session.target" \
 		"$CFG/systemd/user/hyprland-session.target"
 
 	mkdir -p "$HOME/.cache/ricelin"
@@ -477,7 +518,7 @@ verify() {
 	step "Verifying"
 	ok=1
 	for l in hypr quickshell ghostty; do
-		if [ -L "$CFG/$l" ]; then say "  ok   ~/.config/$l"; else
+		if [ -d "$CFG/$l" ] && [ ! -L "$CFG/$l" ]; then say "  ok   ~/.config/$l"; else
 			warn "  miss ~/.config/$l"
 			ok=0
 		fi
@@ -509,31 +550,32 @@ EOF
 }
 
 uninstall() {
-	step "Removing Ricelin symlinks"
-	for name in hypr quickshell ghostty kdeglobals; do
-		target="$CFG/$name"
-		if [ -L "$target" ]; then
-			dest="$(readlink "$target")"
-			case "$dest" in
-			"$PREFIX"/*)
-				rm "$target"
-				say "  removed $name"
-				newest=""
-				for b in "$target".bak-ricelin-*; do
-					[ -e "$b" ] && newest="$b"
-				done
-				if [ -n "$newest" ]; then
-					mv "$newest" "$target"
-					say "  restored backup -> $name"
-				fi
-				;;
-			esac
+	step "Removing Ricelin configs"
+	for target in \
+		"$CFG/hypr" "$CFG/quickshell" "$CFG/ghostty" \
+		"$CFG/kdeglobals" "$CFG/systemd/user/hyprland-session.target"; do
+		name="$(basename "$target")"
+		[ -e "$target" ] || [ -L "$target" ] || continue
+		# Only remove what we own. A dest without our marker is the user's own
+		# config (or a leftover from another setup); never rm -rf that blindly.
+		if ! is_managed "$target"; then
+			warn "  skipped $name (not Ricelin-managed, left it alone)"
+			continue
+		fi
+		rm -f "$(marker_for "$target")"
+		rm -rf "$target"
+		say "  removed $name"
+		newest=""
+		for b in "$target".bak-ricelin-*; do
+			[ -e "$b" ] && newest="$b"
+		done
+		if [ -n "$newest" ]; then
+			mv "$newest" "$target"
+			say "  restored backup -> $name"
 		fi
 	done
-	target="$CFG/systemd/user/hyprland-session.target"
-	[ -L "$target" ] && rm "$target" && say "  removed hyprland-session.target"
 	say ""
-	say "Configs unlinked. The clone is still at $PREFIX (rm -rf it to remove fully)."
+	say "Configs removed. The clone is still at $PREFIX (rm -rf it to remove fully)."
 	say "rishot, fonts and packages were left installed."
 }
 

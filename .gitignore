@@ -10,6 +10,10 @@ Thumbs.db
 # Legacy migration artifacts
 *.legacy
 
+# install.sh ownership markers and config backups, only ever live under ~/.config
+.ricelin-managed
+*.bak-ricelin-*
+
 # Per-machine
 .envrc
 
